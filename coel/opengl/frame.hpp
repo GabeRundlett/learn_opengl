@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <iostream>
 
-#include "texture.hpp"
+#include <coel/opengl/texture.hpp>
 
 namespace opengl {
     struct renderbuffer {
@@ -87,9 +87,8 @@ namespace opengl {
         }
 
         void verify() {
-            if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-                std::cout << "failed to complete creation of framebuffer";
-            }
+            if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                std::cout << "failed to complete creation of framebuffer\n";
         }
 
         inline void bind() const {

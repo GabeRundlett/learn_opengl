@@ -1,20 +1,22 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include "camera.hpp"
+#include <coel/graphics/camera.hpp>
 
 struct player3d {
-    camera3d cam;
+    graphics::camera3d cam;
 
+    // clang-format off
     bool move_foreward : 1 = false,
-                         move_backward : 1 = false,
-                         move_left : 1 = false,
-                         move_right : 1 = false,
-                         move_up : 1 = false,
-                         move_down : 1 = false;
+        move_backward : 1 = false,
+        move_left : 1 = false,
+        move_right : 1 = false,
+        move_up : 1 = false,
+        move_down : 1 = false;
+    // clang-format on
 
     void init() {
-        cam.pos.z = 3;
+        cam.pos.z = 5;
         cam.pos.y = 2;
         cam.move_speed = 4;
     }

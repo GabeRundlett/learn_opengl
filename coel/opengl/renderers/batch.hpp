@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstddef>
-#include "../buffers.hpp"
+#include <coel/opengl/buffers.hpp>
 
 namespace opengl { namespace renderer {
     template <typename self_t, typename vertex_t, std::size_t max_vcount_i, std::size_t max_icount_i>
@@ -31,6 +31,8 @@ namespace opengl { namespace renderer {
             glGenBuffers(1, &ibo_id);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, ibuffer_size, nullptr, GL_DYNAMIC_DRAW);
+
+            vao.unbind();
         }
 
         void begin() {
@@ -59,8 +61,29 @@ namespace opengl { namespace renderer {
             current_vcount += vcount, current_icount += icount;
         }
 
+        void submit(const std::vector<vertex> &vertices,
+                    const std::vector<unsigned int> &indices) {
+            auto vcount = vertices.size(), icount = indices.size();
+
+            if (current_vcount + vcount > max_vcount || current_icount + icount > max_icount) {
+                end();
+                flush();
+                begin();
+            }
+            for (const auto &v : vertices) {
+                *vbuffer_ptr = v;
+                ++vbuffer_ptr;
+            }
+            for (const auto &i : indices) {
+                *ibuffer_ptr = i + current_vcount;
+                ++ibuffer_ptr;
+            }
+
+            // vbuffer_ptr += vcount, ibuffer_ptr += icount;
+            current_vcount += vcount, current_icount += icount;
+        }
+
         void end() {
-            vao.bind();
             glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
 

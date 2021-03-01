@@ -1,7 +1,7 @@
 #pragma once
 
-#include "player.hpp"
-#include "model.hpp"
+#include <game/player.hpp>
+#include <coel/opengl/model.hpp>
 
 struct test_scene {
     player3d player;
@@ -59,7 +59,6 @@ struct test_scene {
 
     opengl::vertex_array cube_vao;
     opengl::vertex_buffer cube_vbo;
-
     glm::mat4 cube_modl_mat, light_modl_mat;
 
     opengl::shader_program shader;
@@ -80,32 +79,61 @@ struct test_scene {
         u_normal_tex,
         u_roughness_tex;
 
+    // opengl::model3d terrain, nanosuit;
+    // opengl::shader_program model_shader;
+
     opengl::texture2d
         cube_albedo_tex,
         cube_normal_tex,
         cube_roughness_tex;
 
+    std::vector<float> voxels;
+    opengl::texture3d cube_voxel_tex;
+
     test_scene()
         : cube_vao(),
           cube_vbo(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0])),
-          shader("assets/shaders/scene_vert.glsl", "assets/shaders/scene_frag.glsl"),
+          shader("game/assets/shaders/scene_vert.glsl", "game/assets/shaders/scene_frag.glsl"),
+          //   terrain("game/assets/models/test_cube/test_cube.obj"),
+          //   nanosuit("game/assets/models/nanosuit/nanosuit.obj"),
           cube_albedo_tex({
-              .filepath = "assets/textures/planks_013/Planks013_1K_Color.jpg",
+              .filepath = "game/assets/textures/planks_013/Planks013_1K_Color.jpg",
               .gl_format = GL_SRGB_ALPHA,
               .filter = {.min = GL_LINEAR_MIPMAP_LINEAR},
               .use_mipmap = true,
           }),
           cube_normal_tex({
-              .filepath = "assets/textures/planks_013/Planks013_1K_Normal.jpg",
+              .filepath = "game/assets/textures/planks_013/Planks013_1K_Normal.jpg",
               .gl_format = GL_SRGB_ALPHA,
               .filter = {.min = GL_LINEAR_MIPMAP_LINEAR},
               .use_mipmap = true,
           }),
           cube_roughness_tex({
-              .filepath = "assets/textures/planks_013/Planks013_1K_Roughness.jpg",
+              .filepath = "game/assets/textures/planks_013/Planks013_1K_Roughness.jpg",
               .gl_format = GL_RGBA,
               .filter = {.min = GL_LINEAR_MIPMAP_LINEAR},
               .use_mipmap = true,
+          }),
+          voxels{
+              // clang-format off
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              0, 0, 0, 0,
+              // clang-format on
+          },
+          cube_voxel_tex({
+              .data_format = GL_RGBA,
+              .data_type = GL_RGBA,
+              .gl_format = GL_RED,
+              .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
           }) {
     }
 
@@ -118,6 +146,8 @@ struct test_scene {
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(3 * sizeof(float)));
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(6 * sizeof(float)));
+        cube_vao.unbind();
+        glEnable(GL_TEXTURE_3D);
 
         player.init();
         u_view_mat = shader.find_uniform("u_view_mat");
@@ -144,12 +174,16 @@ struct test_scene {
 
     void resize(glm::ivec2 size) {
         player.resize_cam(size);
+        // mesh_batch.shader.bind();
+        // glUniformMatrix4fv(mesh_batch.u_proj_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.proj_mat));
         shader.bind();
         glUniformMatrix4fv(u_proj_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.proj_mat));
     }
 
     void on_update(double elapsed) {
         player.update(elapsed);
+        // mesh_batch.shader.bind();
+        // glUniformMatrix4fv(mesh_batch.u_view_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.view_mat));
         shader.bind();
         glUniformMatrix4fv(u_view_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.view_mat));
         glUniform3fv(u_cam_pos.location, 1, reinterpret_cast<float *>(&player.cam.pos));
@@ -171,12 +205,15 @@ struct test_scene {
         glClearColor(1.81, 2.01, 5.32, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
+        // glEnable(GL_CULL_FACE);
         glDepthFunc(GL_LEQUAL);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        draw_cube({0, 0.5, 0}, {1, 1, 1}, 1);
+        // terrain.draw();
+
+        shader.bind();
+        draw_cube({0, 0.5, 0}, {6, 4, 6}, 1);
 
         glUniformMatrix4fv(u_modl_mat.location, 1, false, reinterpret_cast<float *>(&light_modl_mat));
         glUniform1i(u_material_index.location, 1);

@@ -2,12 +2,12 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "opengl.hpp"
 
 #include <fmt/core.h>
 
-#include "ui.hpp"
-#include "test_scene.hpp"
+#include <coel/opengl/core.hpp>
+#include <coel/graphics/ui.hpp>
+#include <game/test_scene.hpp>
 
 #include <vector>
 #include <thread>
@@ -44,26 +44,22 @@ class glfw_app {
 
 class game_app {
   public:
-    glm::uvec2 frame_dim = {800, 600};
+    glm::uvec2 frame_dim = {1200, 900};
     glm::vec2 mouse_pos = {};
-    double prev_time;
-
-    bool is_active : 1 = true, is_paused : 1 = false, show_debug_menu : 1 = false;
-
+    double now;
+    bool is_active : 1 = true, is_paused : 1 = false;
     glfw_app glfw;
 
-    // opengl::renderer::text_batch text;
-    menu_ui menu;
-    test_scene scene;
-
     // clang-format off
-    static inline const std::array quad_vertices = {
+    static inline constexpr std::array quad_vertices = {
         -1.0f, -1.0f,
         -1.0f,  1.0f,
          1.0f,  1.0f,
          1.0f, -1.0f,
     };
     // clang-format on
+
+    test_scene scene;
 
     float render_resolution_scale;
     glm::uvec2 scene_frame_dim = frame_dim;
@@ -78,22 +74,18 @@ class game_app {
     opengl::texture2d scene_frame_tex;
     opengl::renderbuffer scene_frame_depth_rbo;
 
+    graphics::menu_ui menu;
+
     game_app()
         : glfw(frame_dim),
-          scene_frame_vao(),
           scene_frame_quad_vbo(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0])),
-          scene_frame(),
-          scene_frame_shader("assets/shaders/scene_frame_vert.glsl", "assets/shaders/scene_frame_frag.glsl"),
-          scene_frame_tex(),
-          scene_frame_depth_rbo() {
+          scene_frame_shader("game/assets/shaders/scene_frame_vert.glsl", "game/assets/shaders/scene_frame_frag.glsl") {
         glfwSetWindowUserPointer(glfw.window, this);
-        prev_time = glfwGetTime();
+        now = glfwGetTime();
         init();
     }
-
     void toggle_pause() {
         is_paused = !is_paused;
-
         if (is_paused) {
             glfwSetInputMode(glfw.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             glfwSetInputMode(glfw.window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
@@ -103,21 +95,15 @@ class game_app {
             glfwSetInputMode(glfw.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
             glfwSwapInterval(0);
         }
-
         mouse_pos = glm::vec2(frame_dim) * 0.5f;
         glfwSetCursorPos(glfw.window, mouse_pos.x, mouse_pos.y);
     }
-    void toggle_debug() {
-        show_debug_menu = !show_debug_menu;
-    }
-
     bool update() {
         glfwPollEvents();
         if (is_active) {
-            double now = glfwGetTime();
-            on_update(now - prev_time);
-            prev_time = now;
-
+            double new_now = glfwGetTime();
+            on_update(new_now - now);
+            now = new_now;
             draw();
         } else
             std::this_thread::sleep_for(100ms);
@@ -125,10 +111,9 @@ class game_app {
     }
     void resize() {
         menu.resize(frame_dim);
-        scene.resize(frame_dim);
-
         menu.buttons[1].pos = {20, frame_dim.y - 40 - 20};
         resize_frame();
+        scene.resize(scene_frame_dim);
     }
     void resize_frame() {
         scene_frame_dim = glm::vec2(frame_dim) * render_resolution_scale;
@@ -138,7 +123,7 @@ class game_app {
             .data_format = GL_RGBA,
             .gl_format = GL_RGBA16F,
             .wrap = {.s = GL_CLAMP_TO_EDGE, .t = GL_CLAMP_TO_EDGE},
-            .filter = {.min = GL_LINEAR, .max = GL_NEAREST},
+            .filter = {.min = GL_LINEAR, .max = GL_LINEAR},
             .samples = 4,
             .use_mipmap = false,
         });
@@ -149,17 +134,12 @@ class game_app {
         });
         scene_frame.verify();
     }
-
     void init() {
         set_callbacks();
-
         glfwSetInputMode(glfw.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         glfwSetInputMode(glfw.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-
         glfwSetWindowSizeLimits(glfw.window, 400, 360, GLFW_DONT_CARE, GLFW_DONT_CARE);
-
         scene.init();
-
         scene_frame_vao.bind();
         scene_frame_quad_vbo.bind();
         glEnableVertexAttribArray(0);
@@ -174,7 +154,6 @@ class game_app {
         unsigned int attachment = GL_COLOR_ATTACHMENT0;
         glDrawBuffers(1, &attachment);
         scene_frame.unbind();
-
         add_ui();
     }
     void set_callbacks() {
@@ -221,12 +200,9 @@ class game_app {
             if (game.is_paused) {
                 game.menu.process_key(button, scancode, action, mods);
             } else {
-                if (button == GLFW_KEY_F3 && action == GLFW_PRESS)
-                    game.toggle_debug();
-
                 game.scene.player.key_press(button, scancode, action, mods);
-
                 switch (button) {
+                case GLFW_KEY_0:
                 case GLFW_KEY_1:
                 case GLFW_KEY_2:
                 case GLFW_KEY_3:
@@ -239,6 +215,10 @@ class game_app {
                     game.scene.shader.bind();
                     glUniform1i(game.scene.u_texture_index.location, button - GLFW_KEY_0);
                     break;
+                case GLFW_KEY_R:
+                    game.scene.shader = opengl::shader_program("game/assets/shaders/scene_vert.glsl", "game/assets/shaders/scene_frag.glsl");
+                    for (auto &s : game.menu.sliders)
+                        s.on_change(&game, s.range.convert(s.value));
                 default:
                     break;
                 }
@@ -258,7 +238,7 @@ class game_app {
         });
     }
     void add_ui() {
-        menu.buttons.push_back(button{
+        menu.buttons.push_back(graphics::button{
             .pos = {20, 20},
             .size = {130, 40},
             .color_focused = {0.5, 0.55, 0.9, 1},
@@ -279,7 +259,7 @@ class game_app {
                 }
             },
         });
-        menu.buttons.push_back(button{
+        menu.buttons.push_back(graphics::button{
             .pos = {20, 0},
             .size = {100, 40},
             .color_focused = {0.9, 0.5, 0.55, 1},
@@ -300,8 +280,7 @@ class game_app {
                 }
             },
         });
-
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 70},
             .size = {160, 12},
             .range = {.min = 45, .max = 135},
@@ -319,14 +298,12 @@ class game_app {
                     auto &game = *game_ptr;
                     game.scene.player.cam.fov = glm::radians(value);
                     game.scene.player.cam.update_proj();
-
                     game.scene.shader.bind();
                     glUniformMatrix4fv(game.scene.u_proj_mat.location, 1, false, reinterpret_cast<float *>(&game.scene.player.cam.proj_mat));
                 }
             },
         });
-
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 100},
             .size = {160, 10},
             .range = {.min = 0, .max = 500},
@@ -342,13 +319,12 @@ class game_app {
                 auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
                 if (game_ptr) {
                     auto &game = *game_ptr;
-
                     game.scene.shader.bind();
                     glUniform1f(game.scene.u_diffuse_intensity.location, value);
                 }
             },
         });
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 112},
             .size = {160, 10},
             .range = {.min = 0, .max = 0.4},
@@ -365,13 +341,12 @@ class game_app {
                 auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
                 if (game_ptr) {
                     auto &game = *game_ptr;
-
                     game.scene.shader.bind();
                     glUniform1f(game.scene.u_diffuse_ambience.location, value);
                 }
             },
         });
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 130},
             .size = {160, 10},
             .range = {.min = 0, .max = 10},
@@ -389,13 +364,12 @@ class game_app {
                 auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
                 if (game_ptr) {
                     auto &game = *game_ptr;
-
                     game.scene.shader.bind();
                     glUniform1f(game.scene.u_specular_intensity.location, value);
                 }
             },
         });
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 142},
             .size = {160, 10},
             .range = {.min = 0, .max = 8},
@@ -413,13 +387,12 @@ class game_app {
                 auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
                 if (game_ptr) {
                     auto &game = *game_ptr;
-
                     game.scene.shader.bind();
                     glUniform1f(game.scene.u_specular_sharpness.location, value);
                 }
             },
         });
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 154},
             .size = {160, 10},
             .range = {.min = 0, .max = 1},
@@ -437,14 +410,12 @@ class game_app {
                 auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
                 if (game_ptr) {
                     auto &game = *game_ptr;
-
                     game.scene.shader.bind();
                     glUniform1f(game.scene.u_specular_roughness.location, value);
                 }
             },
         });
-
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 180},
             .size = {160, 10},
             .range = {.min = 0, .max = 5},
@@ -468,7 +439,7 @@ class game_app {
                 }
             },
         });
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 192},
             .size = {160, 10},
             .range = {.min = 0, .max = 5},
@@ -492,12 +463,11 @@ class game_app {
                 }
             },
         });
-
-        menu.sliders.push_back(slider{
+        menu.sliders.push_back(graphics::slider{
             .pos = {20, 210},
             .size = {160, 10},
             .range = {.min = 0.1, .max = 2},
-            .value = 1.0f / 2.1,
+            .value = 1.0f / 1.9,
             .label = {
                 .text = "Render Res. Factor",
                 .color_focused = {0.9, 0.9, 0.9, 1},
@@ -516,29 +486,23 @@ class game_app {
                 }
             },
         });
-
-        menu.textboxes.push_back(textbox{
+        menu.textboxes.push_back(graphics::textbox{
             .pos = {20, 222},
             .size = {166, 68},
         });
-
         for (auto &s : menu.sliders)
             s.on_change(this, s.range.convert(s.value));
     }
-
     void on_update(double elapsed) {
         scene.on_update(elapsed);
     }
-
     void draw() {
         scene_frame.bind();
         glViewport(0, 0, scene_frame_dim.x, scene_frame_dim.y);
         scene.draw();
-        scene_frame.unbind();
 
+        opengl::framebuffer::unbind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
-        glClearColor(1.81, 2.01, 2.32, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_CULL_FACE);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -549,19 +513,8 @@ class game_app {
         glUniform1i(u_scene_frame_tex.location, 0);
         scene_frame_vao.bind();
         glDrawArrays(GL_QUADS, 0, 4);
-
-        if (show_debug_menu) {
-            opengl::framebuffer::unbind();
-            menu.draw_debug();
-        }
-
-        if (is_paused) {
-            opengl::framebuffer::unbind();
+        if (is_paused)
             menu.draw_settings();
-        }
-
         glfwSwapBuffers(glfw.window);
     }
 };
-
-// render resolution

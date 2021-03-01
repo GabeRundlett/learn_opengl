@@ -6,17 +6,18 @@
 #include <glm/glm.hpp>
 
 namespace opengl {
-    template <GLenum target>
+    template <GLenum target, typename dim_type = glm::uvec2>
     struct texture {
         unsigned int id = -1;
 
         struct configuration {
             const char *filepath = nullptr;
             const std::uint8_t *data = nullptr;
-            unsigned int width, height;
+            dim_type dim;
+            // unsigned int width, height;
             unsigned int data_format, data_type = GL_UNSIGNED_BYTE, gl_format;
             struct wrapping {
-                unsigned int s = GL_REPEAT, t = GL_REPEAT;
+                unsigned int s = GL_REPEAT, t = GL_REPEAT, r = GL_REPEAT;
             } wrap;
             struct filtering {
                 unsigned int min = GL_LINEAR, max = GL_LINEAR;
@@ -49,37 +50,38 @@ namespace opengl {
 
         void regenerate(const configuration &conf) {
             if (conf.filepath != nullptr) {
-                int width, height, num_channels;
-                std::uint8_t *data = stbi_load(conf.filepath, &width, &height, &num_channels, 0);
+                if constexpr (target == GL_TEXTURE_2D || target == GL_TEXTURE_2D_MULTISAMPLE) {
+                    int width, height, num_channels;
+                    std::uint8_t *data = stbi_load(conf.filepath, &width, &height, &num_channels, 0);
 
-                unsigned int format;
-                switch (num_channels) {
-                case 1: format = GL_RED; break;
-                case 3: format = GL_RGB; break;
-                case 4: format = GL_RGBA; break;
+                    unsigned int format;
+                    switch (num_channels) {
+                    case 1: format = GL_RED; break;
+                    case 3: format = GL_RGB; break;
+                    case 4: format = GL_RGBA; break;
+                    }
+
+                    regenerate({
+                        .filepath = nullptr,
+                        .data = data,
+                        .dim = {.x = width, .y = height},
+                        .data_format = format,
+                        .data_type = conf.data_type,
+                        .gl_format = conf.gl_format,
+                        .wrap = {conf.wrap.s, conf.wrap.t},
+                        .filter = {conf.filter.min, conf.filter.max},
+                        .border_color = conf.border_color,
+                        .use_mipmap = conf.use_mipmap,
+                    });
+
+                    stbi_image_free(data);
                 }
-
-                regenerate({
-                    .filepath = nullptr,
-                    .data = data,
-                    .width = (unsigned int)width,
-                    .height = (unsigned int)height,
-                    .data_format = format,
-                    .data_type = conf.data_type,
-                    .gl_format = conf.gl_format,
-                    .wrap = {conf.wrap.s, conf.wrap.t},
-                    .filter = {conf.filter.min, conf.filter.max},
-                    .border_color = conf.border_color,
-                    .use_mipmap = conf.use_mipmap,
-                });
-
-                stbi_image_free(data);
             } else {
                 bind();
                 if constexpr (target == GL_TEXTURE_2D_MULTISAMPLE) {
-                    glTexImage2DMultisample(target, conf.samples, conf.gl_format, conf.width, conf.height, false);
-                } else {
-                    glTexImage2D(target, 0, conf.gl_format, conf.width, conf.height, 0, conf.data_format, conf.data_type, conf.data);
+                    glTexImage2DMultisample(target, conf.samples, conf.gl_format, conf.dim.x, conf.dim.y, false);
+                } else if constexpr (target == GL_TEXTURE_2D) {
+                    glTexImage2D(target, 0, conf.gl_format, conf.dim.x, conf.dim.y, 0, conf.data_format, conf.data_type, conf.data);
                     glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
                     glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
                     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
@@ -87,6 +89,15 @@ namespace opengl {
                     if (conf.use_mipmap)
                         glGenerateMipmap(target);
                     if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER)
+                        glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
+                } else if constexpr (target == GL_TEXTURE_3D) {
+                    glTexImage3D(target, 0, conf.gl_format, conf.dim.x, conf.dim.y, conf.dim.z, 0, conf.data_format, conf.data_type, conf.data);
+                    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, conf.wrap.s);
+                    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, conf.wrap.t);
+                    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, conf.wrap.r);
+                    if (conf.use_mipmap)
+                        glGenerateMipmap(target);
+                    if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER || conf.wrap.r == GL_CLAMP_TO_BORDER)
                         glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
                 }
             }
@@ -112,4 +123,6 @@ namespace opengl {
 
     using texture2d = texture<GL_TEXTURE_2D>;
     using texture2d_multisample = texture<GL_TEXTURE_2D_MULTISAMPLE>;
+
+    using texture3d = texture<GL_TEXTURE_3D, glm::uvec3>;
 } // namespace opengl

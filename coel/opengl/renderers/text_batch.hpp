@@ -1,8 +1,8 @@
 #pragma once
 
-#include "batch.hpp"
-#include "../texture.hpp"
-#include "../shader.hpp"
+#include <coel/opengl/renderers/batch.hpp>
+#include <coel/opengl/shader.hpp>
+#include <coel/opengl/texture.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -82,7 +82,7 @@ namespace opengl { namespace renderer {
         texture2d text_atlas;
 
         text_batch()
-            : shader("assets/shaders/text_vert.glsl", "assets/shaders/text_frag.glsl"),
+            : shader("game/assets/shaders/text_vert.glsl", "game/assets/shaders/text_frag.glsl"),
               text_atlas({
 #if 0
                   .data = nullptr,
@@ -96,7 +96,7 @@ namespace opengl { namespace renderer {
                   .filter_max = GL_LINEAR,
                   .use_mipmap = false,
 #endif
-                  .filepath = "assets/textures/RobotoFontAtlas.png",
+                  .filepath = "game/assets/textures/RobotoFontAtlas.png",
                   .gl_format = GL_RGBA,
                   .use_mipmap = false,
               }) {
@@ -118,6 +118,8 @@ namespace opengl { namespace renderer {
             glUniform1i(u_text_atlas.location, 0);
 
             std::uint8_t *offset = 0;
+
+            vao.bind();
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
             offset += sizeof(vertex::pos);
@@ -130,6 +132,7 @@ namespace opengl { namespace renderer {
             glEnableVertexAttribArray(3);
             glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
             offset += sizeof(vertex::font_size);
+            vao.unbind();
         }
 
         void resize(glm::ivec2 size) {

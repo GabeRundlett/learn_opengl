@@ -1,7 +1,7 @@
 #pragma once
 
-#include "batch.hpp"
-#include "../shader.hpp"
+#include <coel/opengl/renderers/batch.hpp>
+#include <coel/opengl/shader.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,9 +17,10 @@ namespace opengl { namespace renderer {
 
       public:
         ui_batch() : batch<ui_batch, ui_vertex, 10000, 10000>(),
-                     shader("assets/shaders/ui_vert.glsl", "assets/shaders/ui_frag.glsl") {
+                     shader("game/assets/shaders/ui_vert.glsl", "game/assets/shaders/ui_frag.glsl") {
             u_view_mat = shader.find_uniform("u_view_mat");
 
+            vao.bind();
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), reinterpret_cast<const void *>(0));
             glEnableVertexAttribArray(1);
@@ -28,6 +29,7 @@ namespace opengl { namespace renderer {
             glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), reinterpret_cast<const void *>(2 * sizeof(glm::vec2)));
             glEnableVertexAttribArray(3);
             glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(vertex), reinterpret_cast<const void *>(3 * sizeof(glm::vec2)));
+            vao.unbind();
         }
 
         void resize(glm::ivec2 size) {

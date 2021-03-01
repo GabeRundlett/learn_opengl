@@ -29,8 +29,12 @@ namespace opengl {
             glDeleteBuffers(1, &id);
         }
 
-        void bind() {
+        void bind() const {
             glBindVertexArray(id);
+        }
+
+        static inline void unbind() {
+            glBindVertexArray(0);
         }
     };
 

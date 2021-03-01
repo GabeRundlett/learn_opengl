@@ -40,6 +40,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     CONAN_PKG::freetype
     CONAN_PKG::fmt
 )
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}
+)
 
 target_link_options(${PROJECT_NAME} PUBLIC
     $<$<PLATFORM_ID:Windows>:
