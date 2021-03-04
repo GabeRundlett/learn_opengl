@@ -3,9 +3,12 @@
 #include <coel/opengl/renderers/batch.hpp>
 #include <coel/opengl/shader.hpp>
 #include <coel/opengl/texture.hpp>
+#include <coel/opengl/renderers/shaders.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <algorithm>
 
 // #include <ft2build.h>
 // #include FT_FREETYPE_H
@@ -79,10 +82,10 @@ namespace opengl { namespace renderer {
             u_view_mat,
             u_text_atlas;
 
-        texture2d text_atlas;
+        texture2d<> text_atlas;
 
-        text_batch()
-            : shader("game/assets/shaders/text_vert.glsl", "game/assets/shaders/text_frag.glsl"),
+        text_batch(const char *const font_filepath)
+            : shader({.source_str = text_batch_vert}, {.source_str = text_batch_frag}),
               text_atlas({
 #if 0
                   .data = nullptr,
@@ -96,7 +99,7 @@ namespace opengl { namespace renderer {
                   .filter_max = GL_LINEAR,
                   .use_mipmap = false,
 #endif
-                  .filepath = "game/assets/textures/RobotoFontAtlas.png",
+                  .filepath = font_filepath,
                   .gl_format = GL_RGBA,
                   .use_mipmap = false,
               }) {
@@ -187,7 +190,7 @@ namespace opengl { namespace renderer {
             return font_atlas_glyph_info{};
         }
 
-        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color) {
+        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, glm::vec2 *const max_size = nullptr) {
             glm::vec2 cursor_offset = {0.0f, 0.0f};
             s *= 1.0f / 96;
             for (const auto &c : str) {
@@ -205,10 +208,15 @@ namespace opengl { namespace renderer {
                     submit_glyph(pos, pos + size * s, tex, tex + tex_size, color, s);
                     cursor_offset.x += (float)glyph.xadvance * s;
                 }
+                if (max_size != nullptr)
+                    *max_size = {
+                        std::max(cursor_offset.x, max_size->x),
+                        std::max(cursor_offset.y, max_size->y),
+                    };
             }
         }
 
-        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, const glm::vec2 mask_pos, const glm::vec2 mask_size) {
+        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, const glm::vec2 mask_pos, const glm::vec2 mask_size, glm::vec2 *const max_size = nullptr) {
             glm::vec2 cursor_offset = {0.0f, 0.0f};
             s *= 1.0f / 96;
             for (const auto &c : str) {
@@ -246,11 +254,19 @@ namespace opengl { namespace renderer {
                     cursor_offset.x += (float)glyph.xadvance * s;
                 }
             }
+            if (max_size != nullptr)
+                *max_size = {
+                    std::max(cursor_offset.x, max_size->x),
+                    std::max(cursor_offset.y, max_size->y),
+                };
         }
 
         void before_flush() {
             shader.bind();
             text_atlas.bind(0);
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
     };
 }} // namespace opengl::renderer

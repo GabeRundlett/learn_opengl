@@ -2,6 +2,7 @@
 
 #include <coel/opengl/renderers/batch.hpp>
 #include <coel/opengl/shader.hpp>
+#include <coel/opengl/renderers/shaders.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,9 +18,8 @@ namespace opengl { namespace renderer {
 
       public:
         ui_batch() : batch<ui_batch, ui_vertex, 10000, 10000>(),
-                     shader("game/assets/shaders/ui_vert.glsl", "game/assets/shaders/ui_frag.glsl") {
+                     shader({.source_str = ui_batch_vert}, {.source_str = ui_batch_frag}) {
             u_view_mat = shader.find_uniform("u_view_mat");
-
             vao.bind();
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), reinterpret_cast<const void *>(0));

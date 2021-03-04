@@ -1,46 +1,49 @@
 #pragma once
 
+#include <fmt/core.h>
+
+#include <glm/glm.hpp>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <fmt/core.h>
-
 #include <coel/opengl/core.hpp>
+
+namespace coel {
+    class glfw_app {
+      public:
+        GLFWwindow *window = nullptr;
+
+        glfw_app(glm::ivec2 frame_dim) {
+            glfwInit();
+            window = glfwCreateWindow(frame_dim.x, frame_dim.y, "bruh", nullptr, nullptr);
+
+            if (window == nullptr) {
+                std::cout << "failed to create glfw window\n";
+                return;
+            }
+
+            glfwMakeContextCurrent(window);
+            glfwSwapInterval(1);
+
+            if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+                std::cout << "failed to load opengl\n";
+                glfwDestroyWindow(window);
+                window = nullptr;
+                return;
+            }
+        }
+        ~glfw_app() {
+            glfwDestroyWindow(window);
+            glfwTerminate();
+        }
+    };
+} // namespace coel
+
 #include <coel/graphics/ui.hpp>
-#include <game/test_scene.hpp>
+
+#include <voxel_game/test_scene.hpp>
 
 #include <vector>
-#include <thread>
-using namespace std::chrono_literals;
-
-class glfw_app {
-  public:
-    GLFWwindow *window = nullptr;
-
-    glfw_app(glm::ivec2 frame_dim) {
-        glfwInit();
-        window = glfwCreateWindow(frame_dim.x, frame_dim.y, "bruh", nullptr, nullptr);
-
-        if (window == nullptr) {
-            std::cout << "failed to create glfw window\n";
-            return;
-        }
-
-        glfwMakeContextCurrent(window);
-        glfwSwapInterval(1);
-
-        if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-            std::cout << "failed to load opengl\n";
-            glfwDestroyWindow(window);
-            window = nullptr;
-            return;
-        }
-    }
-    ~glfw_app() {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    }
-};
 
 class game_app {
   public:
@@ -48,7 +51,7 @@ class game_app {
     glm::vec2 mouse_pos = {};
     double now;
     bool is_active : 1 = true, is_paused : 1 = false;
-    glfw_app glfw;
+    coel::glfw_app glfw;
 
     // clang-format off
     static inline constexpr std::array quad_vertices = {
@@ -71,7 +74,7 @@ class game_app {
         u_scene_frame_gamma,
         u_scene_frame_exposure,
         u_scene_frame_tex;
-    opengl::texture2d scene_frame_tex;
+    opengl::texture2d<> scene_frame_tex;
     opengl::renderbuffer scene_frame_depth_rbo;
 
     graphics::menu_ui menu;
@@ -118,10 +121,9 @@ class game_app {
     void resize_frame() {
         scene_frame_dim = glm::vec2(frame_dim) * render_resolution_scale;
         scene_frame_tex.regenerate({
-            .width = scene_frame_dim.x,
-            .height = scene_frame_dim.y,
-            .data_format = GL_RGBA,
+            .dim = {scene_frame_dim.x, scene_frame_dim.y},
             .gl_format = GL_RGBA16F,
+            .data_format = GL_RGBA,
             .wrap = {.s = GL_CLAMP_TO_EDGE, .t = GL_CLAMP_TO_EDGE},
             .filter = {.min = GL_LINEAR, .max = GL_LINEAR},
             .samples = 4,
@@ -165,7 +167,6 @@ class game_app {
         });
         glfwSetCursorPosCallback(glfw.window, [](GLFWwindow *glfw_window, double mouse_x, double mouse_y) -> void {
             auto &game = *static_cast<game_app *>(glfwGetWindowUserPointer(glfw_window));
-
             game.mouse_pos = {(float)mouse_x, (float)mouse_y};
 
             if (game.is_paused) {
@@ -187,41 +188,30 @@ class game_app {
         });
         glfwSetKeyCallback(glfw.window, [](GLFWwindow *glfw_window, int button, int scancode, int action, int mods) -> void {
             auto &game = *static_cast<game_app *>(glfwGetWindowUserPointer(glfw_window));
-
-            if (button == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-                if (game.is_paused) {
-                    if (game.menu.esc())
+            if (action == GLFW_PRESS) {
+                switch (button) {
+                case GLFW_KEY_ESCAPE:
+                    if (game.is_paused) {
+                        if (game.menu.esc())
+                            game.toggle_pause();
+                    } else {
                         game.toggle_pause();
-                } else {
-                    game.toggle_pause();
+                    }
+                    break;
+                case GLFW_KEY_R:
+                    system("CLS");
+                    game.scene.shader = opengl::shader_program("game/assets/shaders/scene_vert.glsl", "game/assets/shaders/scene_frag.glsl");
+                    for (auto &s : game.menu.sliders)
+                        s.on_change(&game, s.range.convert(s.value));
+                    break;
+                default:
+                    break;
                 }
             }
-
             if (game.is_paused) {
                 game.menu.process_key(button, scancode, action, mods);
             } else {
                 game.scene.player.key_press(button, scancode, action, mods);
-                switch (button) {
-                case GLFW_KEY_0:
-                case GLFW_KEY_1:
-                case GLFW_KEY_2:
-                case GLFW_KEY_3:
-                case GLFW_KEY_4:
-                case GLFW_KEY_5:
-                case GLFW_KEY_6:
-                case GLFW_KEY_7:
-                case GLFW_KEY_8:
-                case GLFW_KEY_9:
-                    game.scene.shader.bind();
-                    glUniform1i(game.scene.u_texture_index.location, button - GLFW_KEY_0);
-                    break;
-                case GLFW_KEY_R:
-                    game.scene.shader = opengl::shader_program("game/assets/shaders/scene_vert.glsl", "game/assets/shaders/scene_frag.glsl");
-                    for (auto &s : game.menu.sliders)
-                        s.on_change(&game, s.range.convert(s.value));
-                default:
-                    break;
-                }
             }
         });
         glfwSetWindowIconifyCallback(glfw.window, [](GLFWwindow *glfw_window, int mode) -> void {
@@ -303,118 +293,7 @@ class game_app {
                 }
             },
         });
-        menu.sliders.push_back(graphics::slider{
-            .pos = {20, 100},
-            .size = {160, 10},
-            .range = {.min = 0, .max = 500},
-            .label = {
-                .text = "Diffuse Intensity",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
-            },
-            .user_ptr = this,
-            .on_change = [](void *user_ptr, float value) -> void {
-                auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
-                if (game_ptr) {
-                    auto &game = *game_ptr;
-                    game.scene.shader.bind();
-                    glUniform1f(game.scene.u_diffuse_intensity.location, value);
-                }
-            },
-        });
-        menu.sliders.push_back(graphics::slider{
-            .pos = {20, 112},
-            .size = {160, 10},
-            .range = {.min = 0, .max = 0.4},
-            .label = {
-                .text = "Diffuse Ambience",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
-            },
 
-            .user_ptr = this,
-            .on_change = [](void *user_ptr, float value) -> void {
-                auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
-                if (game_ptr) {
-                    auto &game = *game_ptr;
-                    game.scene.shader.bind();
-                    glUniform1f(game.scene.u_diffuse_ambience.location, value);
-                }
-            },
-        });
-        menu.sliders.push_back(graphics::slider{
-            .pos = {20, 130},
-            .size = {160, 10},
-            .range = {.min = 0, .max = 10},
-            .value = 0.5,
-            .label = {
-                .text = "Specular Intensity",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
-            },
-
-            .user_ptr = this,
-            .on_change = [](void *user_ptr, float value) -> void {
-                auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
-                if (game_ptr) {
-                    auto &game = *game_ptr;
-                    game.scene.shader.bind();
-                    glUniform1f(game.scene.u_specular_intensity.location, value);
-                }
-            },
-        });
-        menu.sliders.push_back(graphics::slider{
-            .pos = {20, 142},
-            .size = {160, 10},
-            .range = {.min = 0, .max = 8},
-            .value = 0.1,
-            .label = {
-                .text = "Specular Sharpness",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
-            },
-
-            .user_ptr = this,
-            .on_change = [](void *user_ptr, float value) -> void {
-                auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
-                if (game_ptr) {
-                    auto &game = *game_ptr;
-                    game.scene.shader.bind();
-                    glUniform1f(game.scene.u_specular_sharpness.location, value);
-                }
-            },
-        });
-        menu.sliders.push_back(graphics::slider{
-            .pos = {20, 154},
-            .size = {160, 10},
-            .range = {.min = 0, .max = 1},
-            .value = 0.1,
-            .label = {
-                .text = "Specular Roughness",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
-            },
-
-            .user_ptr = this,
-            .on_change = [](void *user_ptr, float value) -> void {
-                auto *game_ptr = reinterpret_cast<game_app *>(user_ptr);
-                if (game_ptr) {
-                    auto &game = *game_ptr;
-                    game.scene.shader.bind();
-                    glUniform1f(game.scene.u_specular_roughness.location, value);
-                }
-            },
-        });
         menu.sliders.push_back(graphics::slider{
             .pos = {20, 180},
             .size = {160, 10},
@@ -500,7 +379,6 @@ class game_app {
         scene_frame.bind();
         glViewport(0, 0, scene_frame_dim.x, scene_frame_dim.y);
         scene.draw();
-
         opengl::framebuffer::unbind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
         glDisable(GL_CULL_FACE);

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <coel/opengl/buffers.hpp>
+#include <vector>
 
 namespace opengl { namespace renderer {
     template <typename self_t, typename vertex_t, std::size_t max_vcount_i, std::size_t max_icount_i>
@@ -23,7 +24,7 @@ namespace opengl { namespace renderer {
         unsigned int *ibuffer_ptr = nullptr;
 
       public:
-        batch() : vao() {
+        batch() {
             glGenBuffers(1, &vbo_id);
             glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
             glBufferData(GL_ARRAY_BUFFER, vbuffer_size, nullptr, GL_DYNAMIC_DRAW);

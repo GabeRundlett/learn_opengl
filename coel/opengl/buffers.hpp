@@ -15,13 +15,13 @@ namespace opengl {
         vertex_array(vertex_array &&other) {
             this->~vertex_array();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
         }
         vertex_array &operator=(const vertex_array &) = delete;
         vertex_array &operator=(vertex_array &&other) {
             this->~vertex_array();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
             return *this;
         }
 

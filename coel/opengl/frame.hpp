@@ -25,13 +25,13 @@ namespace opengl {
         renderbuffer(renderbuffer &&other) {
             this->~renderbuffer();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
         }
         renderbuffer &operator=(const renderbuffer &) = delete;
         renderbuffer &operator=(renderbuffer &&other) {
             this->~renderbuffer();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
             return *this;
         }
         ~renderbuffer() {
@@ -62,13 +62,13 @@ namespace opengl {
         framebuffer(framebuffer &&other) {
             this->~framebuffer();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
         }
         framebuffer &operator=(const framebuffer &) = delete;
         framebuffer &operator=(framebuffer &&other) {
             this->~framebuffer();
             id = other.id;
-            other.id = -1;
+            other.id = (unsigned int)-1;
             return *this;
         }
         ~framebuffer() {
@@ -76,7 +76,7 @@ namespace opengl {
         }
 
         template <GLenum target>
-        inline void attach(const texture<target> &tex, unsigned int gl_attachment_id) {
+        inline void attach(const texture<target, std::uint8_t, glm::uvec2> &tex, unsigned int gl_attachment_id) {
             bind();
             glFramebufferTexture2D(GL_FRAMEBUFFER, gl_attachment_id, target, tex.id, 0);
         }

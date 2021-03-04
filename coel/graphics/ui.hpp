@@ -9,6 +9,9 @@
 #include <vector>
 
 namespace graphics {
+    struct container {
+    };
+
     struct component_label {
         std::string text;
         glm::vec4 color_focused, color_unfocused;
@@ -174,7 +177,7 @@ namespace graphics {
         }
     };
 
-    struct textbox {
+    struct editable_textbox {
         glm::vec2 pos, size;
         void (*on_enter)(bool) = nullptr;
         std::string contents;
@@ -294,7 +297,7 @@ namespace graphics {
         std::vector<button> buttons;
         std::vector<slider> sliders;
         std::vector<checkbox> checkboxes;
-        std::vector<textbox> textboxes;
+        std::vector<editable_textbox> textboxes;
         glm::ivec2 frame_dim;
 
         void resize(glm::ivec2 size) {

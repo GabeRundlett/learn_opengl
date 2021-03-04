@@ -1,6 +1,4 @@
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
+#include <coel/glfw_window.hpp>
 #include <coel/graphics/camera.hpp>
 
 struct player3d {
@@ -18,7 +16,7 @@ struct player3d {
     void init() {
         cam.pos.z = 5;
         cam.pos.y = 2;
-        cam.move_speed = 4;
+        cam.move_speed = 10;
     }
 
     void resize_cam(glm::ivec2 frame_dim) {
