@@ -18,7 +18,7 @@ void main() {
     mapped = pow(mapped, vec3(1.0f / gamma));
     col = vec4(mapped, 1.0f);
 
-    // col = vec4(1) - col;
+    col = vec4(1) - col;
     // col.w = 1;
     // col += vec4(v_tex, 0, 0) / 2;
 }

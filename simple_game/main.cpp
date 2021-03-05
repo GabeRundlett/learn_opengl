@@ -1,8 +1,8 @@
 #include <coel/application.hpp>
 
-class game_app : public coel::application {
+class my_app : public coel::application {
   public:
-    game_app() : coel::application({800, 600}) {
+    my_app() : coel::application({800, 600}, "simple game") {
         use_raw_mouse(true);
     }
 
@@ -16,7 +16,7 @@ class game_app : public coel::application {
 };
 
 int main() {
-    game_app game;
+    my_app game;
     if (!game)
         return -1;
     game.resize();

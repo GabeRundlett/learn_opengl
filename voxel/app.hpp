@@ -7,6 +7,13 @@
 #include <GLFW/glfw3.h>
 
 #include <coel/opengl/core.hpp>
+#include <coel/graphics/ui.hpp>
+
+#include <voxel_game/test_scene.hpp>
+
+#include <vector>
+#include <thread>
+using namespace std::chrono_literals;
 
 namespace coel {
     class glfw_app {
@@ -39,19 +46,13 @@ namespace coel {
     };
 } // namespace coel
 
-#include <coel/graphics/ui.hpp>
-
-#include <voxel_game/test_scene.hpp>
-
-#include <vector>
-
 class game_app {
   public:
     glm::uvec2 frame_dim = {1200, 900};
     glm::vec2 mouse_pos = {};
     double now;
     bool is_active : 1 = true, is_paused : 1 = false;
-    coel::glfw_app glfw;
+    coel::glfw_app glfw = coel::glfw_app(frame_dim);
 
     // clang-format off
     static inline constexpr std::array quad_vertices = {
@@ -67,9 +68,9 @@ class game_app {
     float render_resolution_scale;
     glm::uvec2 scene_frame_dim = frame_dim;
     opengl::vertex_array scene_frame_vao;
-    opengl::vertex_buffer scene_frame_quad_vbo;
+    opengl::vertex_buffer scene_frame_quad_vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
     opengl::framebuffer scene_frame;
-    opengl::shader_program scene_frame_shader;
+    opengl::shader_program scene_frame_shader = opengl::shader_program({.filepath = "voxel_game/assets/shaders/scene_frame_vert.glsl"}, {.filepath = "voxel_game/assets/shaders/scene_frame_frag.glsl"});
     opengl::shader_uniform
         u_scene_frame_gamma,
         u_scene_frame_exposure,
@@ -79,10 +80,7 @@ class game_app {
 
     graphics::menu_ui menu;
 
-    game_app()
-        : glfw(frame_dim),
-          scene_frame_quad_vbo(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0])),
-          scene_frame_shader("game/assets/shaders/scene_frame_vert.glsl", "game/assets/shaders/scene_frame_frag.glsl") {
+    game_app() {
         glfwSetWindowUserPointer(glfw.window, this);
         now = glfwGetTime();
         init();
@@ -200,7 +198,7 @@ class game_app {
                     break;
                 case GLFW_KEY_R:
                     system("CLS");
-                    game.scene.shader = opengl::shader_program("game/assets/shaders/scene_vert.glsl", "game/assets/shaders/scene_frag.glsl");
+                    game.scene.shader = opengl::shader_program({.filepath = "voxel_game/assets/shaders/scene_vert.glsl"}, {.filepath = "voxel_game/assets/shaders/scene_frag.glsl"});
                     for (auto &s : game.menu.sliders)
                         s.on_change(&game, s.range.convert(s.value));
                     break;
@@ -298,7 +296,7 @@ class game_app {
             .pos = {20, 180},
             .size = {160, 10},
             .range = {.min = 0, .max = 5},
-            .value = 0.42,
+            .value = 0.42f,
             .label = {
                 .text = "Camera Gamma",
                 .color_focused = {0.9, 0.9, 0.9, 1},
@@ -322,7 +320,7 @@ class game_app {
             .pos = {20, 192},
             .size = {160, 10},
             .range = {.min = 0, .max = 5},
-            .value = 0.02,
+            .value = 0.02f,
             .label = {
                 .text = "Camera Exposure",
                 .color_focused = {0.9, 0.9, 0.9, 1},
@@ -345,14 +343,14 @@ class game_app {
         menu.sliders.push_back(graphics::slider{
             .pos = {20, 210},
             .size = {160, 10},
-            .range = {.min = 0.1, .max = 2},
-            .value = 1.0f / 1.9,
+            .range = {.min = 0.1f, .max = 2.0f},
+            .value = 1.0f / 1.9f,
             .label = {
                 .text = "Render Res. Factor",
-                .color_focused = {0.9, 0.9, 0.9, 1},
-                .color_unfocused = {0.9, 0.9, 0.9, 0.7},
-                .offset = {170, -4},
-                .scale = 12,
+                .color_focused = {0.9f, 0.9f, 0.9f, 1.0f},
+                .color_unfocused = {0.9f, 0.9f, 0.9f, 0.7f},
+                .offset = {170.0f, -4.0f},
+                .scale = 12.0f,
             },
 
             .user_ptr = this,
@@ -365,7 +363,7 @@ class game_app {
                 }
             },
         });
-        menu.textboxes.push_back(graphics::textbox{
+        menu.textboxes.push_back({
             .pos = {20, 222},
             .size = {166, 68},
         });

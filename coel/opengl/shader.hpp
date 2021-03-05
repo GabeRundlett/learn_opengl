@@ -5,7 +5,59 @@
 #include <fstream>
 #include <iostream>
 
+#include <string>
+#include <iomanip>
+#include <regex>
+#include <sstream>
+#include <string_view>
+
 namespace opengl {
+    namespace detail {
+        enum class shader_type {
+            none,
+            vert,
+            frag,
+        };
+
+        constexpr std::string_view
+            SHADER_TYPE_VERT_IDENT = "vert",
+            SHADER_TYPE_FRAG_IDENT = "frag";
+
+        struct shader_info {
+            std::string name{}, source_filepath{};
+            std::stringstream source_stream{};
+            shader_type type = shader_type::none;
+            std::size_t line_num = 0;
+        };
+
+        std::vector<shader_info> load_shader(const char *const filepath) {
+            std::ifstream shader_file(filepath);
+            std::vector<shader_info> result_vec{};
+            if (shader_file.is_open()) {
+                const std::regex shader_regex(R"reg(#\s*coel_shader\s*\[\s*type\s*:\s*(\w+)\s*,\s*name\s*:\s*"(.*)"\s*\]\s*)reg");
+                std::smatch matches;
+                std::string line;
+                for (std::size_t line_num = 0; getline(shader_file, line); ++line_num) {
+                    if (std::regex_match(line, matches, shader_regex)) {
+                        result_vec.push_back({});
+                        result_vec.back().name = matches[2];
+                        result_vec.back().line_num = line_num + 2;
+                        if (matches[1].str() == SHADER_TYPE_VERT_IDENT)
+                            result_vec.back().type = shader_type::vert;
+                        else if (matches[1].str() == SHADER_TYPE_FRAG_IDENT)
+                            result_vec.back().type = shader_type::frag;
+                    } else {
+                        if (result_vec.size() > 0)
+                            result_vec.back().source_stream << line << '\n';
+                    }
+                }
+            } else {
+                std::cout << "failed to open file\n";
+            }
+            return result_vec;
+        }
+    } // namespace detail
+
     struct shader_config {
         const char *const filepath = nullptr;
         const char *const source_str = nullptr;
@@ -99,6 +151,40 @@ namespace opengl {
 
             bind();
         }
+        shader_program(const char *const custom_shader_filepath) : shader_program() {
+            auto shader_infos = detail::load_shader(custom_shader_filepath);
+
+            shader<GL_VERTEX_SHADER> vert_shader({
+                .source_str =
+                    std::find_if(
+                        shader_infos.begin(), shader_infos.end(),
+                        [](const detail::shader_info &s) { return s.type == detail::shader_type::vert; })
+                        ->source_stream.str()
+                        .c_str(),
+            });
+            shader<GL_FRAGMENT_SHADER> frag_shader({
+                .source_str =
+                    std::find_if(
+                        shader_infos.begin(), shader_infos.end(),
+                        [](const detail::shader_info &s) { return s.type == detail::shader_type::frag; })
+                        ->source_stream.str()
+                        .c_str(),
+            });
+
+            int success;
+            char info_log[512];
+            glAttachShader(id, vert_shader.id);
+            glAttachShader(id, frag_shader.id);
+            glLinkProgram(id);
+            glGetProgramiv(id, GL_LINK_STATUS, &success);
+            if (!success) {
+                glGetShaderInfoLog(id, sizeof info_log, nullptr, info_log);
+                std::cout << "Error: shader linkage failed\n"
+                          << info_log << "\n";
+            }
+
+            bind();
+        }
         shader_program(const shader_program &) = delete;
         shader_program(shader_program &&other) {
             this->~shader_program();
@@ -128,6 +214,33 @@ namespace opengl {
         inline shader_uniform find_uniform(const char *const name) const {
             bind();
             return {.location = glGetUniformLocation(id, name)};
+        }
+
+        void send(const shader_uniform &uniform, int value) const { glUniform1i(uniform.location, value); }
+        void send(const shader_uniform &uniform, float value) const { glUniform1f(uniform.location, value); }
+        void send(const shader_uniform &uniform, const glm::vec2 &v) const {
+            glUniform2fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
+        }
+        void send(const shader_uniform &uniform, const glm::vec3 &v) const {
+            glUniform3fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
+        }
+        void send(const shader_uniform &uniform, const glm::vec4 &v) const {
+            glUniform4fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
+        }
+        void send(const shader_uniform &uniform, const glm::mat4 &m) const {
+            glUniformMatrix4fv(uniform.location, 1, false, reinterpret_cast<const float *>(&m));
+        }
+        void send_array(const shader_uniform &uniform, const glm::vec2 *const v, const unsigned int count) const {
+            glUniform2fv(uniform.location, count, reinterpret_cast<const float *>(v));
+        }
+        void send_array(const shader_uniform &uniform, const glm::vec3 *const v, const unsigned int count) const {
+            glUniform3fv(uniform.location, count, reinterpret_cast<const float *>(v));
+        }
+        void send_array(const shader_uniform &uniform, const glm::vec4 *const v, const unsigned int count) const {
+            glUniform4fv(uniform.location, count, reinterpret_cast<const float *>(v));
+        }
+        void send_array(const shader_uniform &uniform, const glm::mat4 *const m, const unsigned int count) const {
+            glUniformMatrix4fv(uniform.location, count, false, reinterpret_cast<const float *>(m));
         }
     };
 } // namespace opengl

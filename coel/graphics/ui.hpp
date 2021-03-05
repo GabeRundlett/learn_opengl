@@ -208,7 +208,7 @@ namespace graphics {
             return true;
         }
 
-        bool process_key(int button, int scancode, int action, int mods) {
+        bool process_key(int button, int, int action, int mods) {
             if (is_focused) {
                 if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                     int cursor_seek_index = cursor_index;
@@ -256,7 +256,7 @@ namespace graphics {
 
         bool process_char(unsigned int codepoint) {
             if (is_focused) {
-                contents.insert(contents.begin() + cursor_index, codepoint);
+                contents.insert(contents.begin() + cursor_index, (char)codepoint);
                 ++cursor_index;
                 return true;
             }
@@ -292,7 +292,7 @@ namespace graphics {
 
     struct menu_ui {
         opengl::renderer::ui_batch ui;
-        opengl::renderer::text_batch text;
+        opengl::renderer::text_batch text = opengl::renderer::text_batch("voxel_game/assets/textures/RobotoFontAtlas.png");
 
         std::vector<button> buttons;
         std::vector<slider> sliders;
@@ -319,7 +319,7 @@ namespace graphics {
                 elem.hover(mouse_pos);
         }
 
-        void mouse_press(int button, int action, int mods, const glm::vec2 mouse_pos) {
+        void mouse_press(int , int action, int , const glm::vec2 mouse_pos) {
             if (action == GLFW_PRESS) {
                 for (auto &elem : buttons)
                     elem.press();

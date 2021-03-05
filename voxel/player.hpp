@@ -1,5 +1,7 @@
-#include <coel/glfw_window.hpp>
 #include <coel/graphics/camera.hpp>
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 struct player3d {
     graphics::camera3d cam;
@@ -25,12 +27,12 @@ struct player3d {
     }
 
     void move_mouse(glm::vec2 mouse_diff) {
-        cam.rot.x -= mouse_diff.y * 0.001;
-        cam.rot.y -= mouse_diff.x * 0.001;
+        cam.rot.x -= mouse_diff.y * 0.001f;
+        cam.rot.y -= mouse_diff.x * 0.001f;
         cam.update_rot();
     }
 
-    void key_press(int button, int scancode, int action, int mods) {
+    void key_press(int button, int, int action, int) {
         switch (action) {
         case GLFW_PRESS:
             switch (button) {

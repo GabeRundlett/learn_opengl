@@ -5,6 +5,10 @@
 #include <vector>
 
 namespace opengl { namespace renderer {
+    struct component_bounds {
+        glm::vec2 min, max;
+    };
+
     template <typename self_t, typename vertex_t, std::size_t max_vcount_i, std::size_t max_icount_i>
     class batch {
       protected:

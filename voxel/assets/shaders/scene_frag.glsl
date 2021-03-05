@@ -135,10 +135,11 @@ void main() {
             prev_sample_pos = sample_pos;
             sample_pos += cam_ray_dir * delta_depth;
         }
-        if (density < 0.5) discard;
+        // if (density < 0.5) discard;
         // vec3 p = floor(sample_pos * u_cube_dim) / u_cube_dim;
         // col = vec4(abs(sin(p * 293) * cos(p.xzy * 228.7) + cos(p.zxy * 231.5) * sin(p.yzx * 243.7) ) * 5, 1);
-        col = vec4(sample_nrm, 1);
+        // col = vec4(sample_nrm, 1);
+        col = vec4(1, 0, 1, 1);
     } break;
     case 1:
         col = vec4(50, 50, 50, 1);

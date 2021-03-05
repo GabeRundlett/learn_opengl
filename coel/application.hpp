@@ -18,9 +18,9 @@ namespace coel {
         class glfw_app {
           public:
             GLFWwindow *window_ptr = nullptr;
-            glfw_app(const glm::uvec2 frame_dim) {
+            glfw_app(const glm::uvec2 frame_dim, const std::string &title) {
                 glfwInit();
-                window_ptr = glfwCreateWindow(frame_dim.x, frame_dim.y, "bruh", nullptr, nullptr);
+                window_ptr = glfwCreateWindow(frame_dim.x, frame_dim.y, title.c_str(), nullptr, nullptr);
 
                 if (window_ptr == nullptr) {
                     std::cout << "failed to create glfw window\n";
@@ -100,19 +100,22 @@ namespace coel {
         }
 
       protected:
-        glm::uvec2 frame_dim;
-        glfw_app glfw = glfw_app(frame_dim);
+        glm::uvec2 frame_dim = {800, 600};
+        std::string title = "coel application";
+
+        glfw_app glfw = glfw_app(frame_dim, title);
 
         double now = glfwGetTime();
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
         glm::vec2 mouse_pos;
 
         opengl::renderer::ui_batch ui_batch;
-        opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("voxel_game/assets/textures/RobotoFontAtlas.png");
+        opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("voxel/assets/textures/RobotoFontAtlas.png");
 
         // debug info
         double debug_frame_begin = 0;
         unsigned int debug_frames_passed = 0, debug_prev_frames_passed = 1;
+        glm::vec2 debug_text_pos = {16, 16};
 
         void toggle_pause() {
             is_paused = !is_paused;
@@ -143,8 +146,9 @@ namespace coel {
         virtual void on_resume() {}
 
       public:
-        application(glm::uvec2 frame_dim) : frame_dim(frame_dim) {
+        application(glm::uvec2 frame_dim, const char *const title_str) : frame_dim(frame_dim), title(title_str) {
             glfwSetWindowUserPointer(glfw.window_ptr, this);
+            use_vsync(true);
             set_callbacks();
         }
 
@@ -181,16 +185,18 @@ namespace coel {
             if (show_debug_menu) {
                 constexpr glm::vec4 text_col = {0.9f, 0.9f, 0.9f, 1.0f};
 
-                glm::vec2 text_pos = {20, 15}, max_size = {0, 0};
+                opengl::renderer::component_bounds bounds;
+                glm::vec2 border = {8, 8};
+
                 text_batch.submit(
-                    text_pos,
+                    debug_text_pos,
                     fmt::format(
-                        "Frames/s: {}\nWindow Size: ({}, {})\n",
+                        "Frames/s: {}\nWindow Size: ({}, {})",
                         10.0 * debug_prev_frames_passed,
                         frame_dim.x, frame_dim.y),
-                    14.0f, text_col, &max_size);
+                    14.0f, text_col, &bounds);
 
-                ui_batch.submit_rect(text_pos, max_size, {0.1f, 0.1f, 0.1f, 0.5f});
+                ui_batch.submit_rect(bounds.min - border, bounds.max - bounds.min + border * 2.0f, {0.1f, 0.1f, 0.1f, 0.5f});
             }
 
             ui_batch.end();
@@ -207,11 +213,13 @@ namespace coel {
             on_resize();
             redraw();
         }
-
-        inline void use_raw_mouse(bool should_use_raw) {
+        inline void use_vsync(bool should_use_vsync) const {
+            glfwSwapInterval(should_use_vsync);
+        }
+        inline void use_raw_mouse(bool should_use_raw) const {
             glfwSetInputMode(glfw.window_ptr, GLFW_RAW_MOUSE_MOTION, should_use_raw ? GLFW_TRUE : GLFW_FALSE);
         }
-        inline void set_mouse_capture(bool should_capture) {
+        inline void set_mouse_capture(bool should_capture) const {
             glfwSetInputMode(glfw.window_ptr, GLFW_CURSOR, should_capture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
     };

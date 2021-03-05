@@ -19,6 +19,7 @@ namespace opengl { namespace renderer {
         glm::vec4 col;
         float font_size;
     };
+
     class text_batch : public batch<text_batch, text_vertex, 10000, 10000> {
         struct font_atlas_glyph_info {
             int id, index, width, unihex, height, xoffset, yoffset, xadvance, chnl, x, y, page;
@@ -87,35 +88,10 @@ namespace opengl { namespace renderer {
         text_batch(const char *const font_filepath)
             : shader({.source_str = text_batch_vert}, {.source_str = text_batch_frag}),
               text_atlas({
-#if 0
-                  .data = nullptr,
-                  .width = 512,
-                  .height = 512,
-                  .gl_format = GL_RGBA,
-                  .data_format = GL_RGBA,
-                  .wrap_s = GL_CLAMP_TO_EDGE,
-                  .wrap_t = GL_CLAMP_TO_EDGE,
-                  .filter_min = GL_LINEAR,
-                  .filter_max = GL_LINEAR,
-                  .use_mipmap = false,
-#endif
                   .filepath = font_filepath,
                   .gl_format = GL_RGBA,
                   .use_mipmap = false,
               }) {
-#if 0
-            FT_Library ft;
-            if (FT_Init_FreeType(&ft)) {
-                std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
-                return;
-            }
-            FT_Face face;
-            if (FT_New_Face(ft, "assets/fonts/Roboto/Roboto-Regular.ttf", 0, &face)) {
-                std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
-                return;
-            }
-            FT_Set_Pixel_Sizes(face, 0, 48);
-#endif
             u_view_mat = shader.find_uniform("u_view_mat");
             u_text_atlas = shader.find_uniform("u_text_atlas");
             glUniform1i(u_text_atlas.location, 0);
@@ -190,75 +166,99 @@ namespace opengl { namespace renderer {
             return font_atlas_glyph_info{};
         }
 
-        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, glm::vec2 *const max_size = nullptr) {
+        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, component_bounds *const bounds = nullptr) {
             glm::vec2 cursor_offset = {0.0f, 0.0f};
-            s *= 1.0f / 96;
+            float fs = s / 96;
+            bool bounds_set = false;
             for (const auto &c : str) {
                 if (c == '\n') {
                     cursor_offset.x = 0;
-                    cursor_offset.y += s * 96;
+                    cursor_offset.y += s;
                 } else {
                     auto glyph = get_glyph_info(c);
                     glm::vec2 tex = {(float)glyph.x / 1024.f, (float)glyph.y / 1024.f};
                     glm::vec2 size = {(float)glyph.width, (float)glyph.height};
-                    glm::vec2 offset = glm::vec2{(float)glyph.xoffset, (float)glyph.yoffset} * s;
+                    glm::vec2 offset = glm::vec2{(float)glyph.xoffset, (float)glyph.yoffset} * fs;
+                    glm::vec2 p1 = str_pos + cursor_offset + offset;
                     auto tex_size = size / 1024.0f;
-                    glm::vec2 pos = str_pos + cursor_offset;
-                    pos += offset;
-                    submit_glyph(pos, pos + size * s, tex, tex + tex_size, color, s);
-                    cursor_offset.x += (float)glyph.xadvance * s;
+                    const glm::vec2 p2 = p1 + size * fs;
+                    submit_glyph(p1, p2, tex, tex + tex_size, color, fs);
+                    cursor_offset.x += (float)glyph.xadvance * fs;
+                    if (bounds != nullptr) {
+                        if (bounds_set) {
+                            bounds->min = {
+                                std::min(p1.x, bounds->min.x),
+                                std::min(p1.y, bounds->min.y),
+                            };
+                            bounds->max = {
+                                std::max(p2.x, bounds->max.x),
+                                std::max(p2.y, bounds->max.y),
+                            };
+                        } else {
+                            bounds_set = true;
+                            bounds->min = p1;
+                            bounds->max = p2;
+                        }
+                    }
                 }
-                if (max_size != nullptr)
-                    *max_size = {
-                        std::max(cursor_offset.x, max_size->x),
-                        std::max(cursor_offset.y, max_size->y),
-                    };
             }
         }
 
-        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, const glm::vec2 mask_pos, const glm::vec2 mask_size, glm::vec2 *const max_size = nullptr) {
+        void submit(glm::vec2 str_pos, const std::string &str, float s, const glm::vec4 color, const glm::vec2 mask_pos, const glm::vec2 mask_size, component_bounds *const bounds = nullptr) {
             glm::vec2 cursor_offset = {0.0f, 0.0f};
-            s *= 1.0f / 96;
+            float fs = s / 96;
+            bool bounds_set = false;
             for (const auto &c : str) {
                 if (c == '\n') {
                     cursor_offset.x = 0;
-                    cursor_offset.y += s * 96;
+                    cursor_offset.y += s;
                 } else {
                     auto glyph = get_glyph_info(c);
                     glm::vec2 tex = {(float)glyph.x / 1024.f, (float)glyph.y / 1024.f};
                     glm::vec2 size = {(float)glyph.width, (float)glyph.height};
-                    glm::vec2 offset = glm::vec2{(float)glyph.xoffset, (float)glyph.yoffset} * s;
+                    glm::vec2 offset = glm::vec2{(float)glyph.xoffset, (float)glyph.yoffset} * fs;
                     auto tex_size = size / 1024.0f;
-                    glm::vec2 pos = str_pos + cursor_offset;
-                    pos += offset;
-                    if (pos.x > mask_pos.x + mask_size.x || pos.x + size.x < mask_pos.x) {
+                    glm::vec2 p1 = str_pos + cursor_offset + offset;
+                    if (p1.x > mask_pos.x + mask_size.x || p1.x + size.x < mask_pos.x) {
                         // don't show
-                    } else if (pos.y > mask_pos.y + mask_size.y || pos.y + size.y < mask_pos.y) {
+                    } else if (p1.y > mask_pos.y + mask_size.y || p1.y + size.y < mask_pos.y) {
                         // don't show
                     } else {
-                        if (pos.x + size.x * s > mask_pos.x + mask_size.x) {
+                        const glm::vec2 p2 = p1 + size * fs;
+                        if (p2.x > mask_pos.x + mask_size.x) {
                             // clip +x
                             float prev_sx = size.x;
-                            size.x = (mask_pos.x + mask_size.x - pos.x) / s;
+                            size.x = (mask_pos.x + mask_size.x - p1.x) / fs;
                             tex_size.x *= size.x / prev_sx;
                         }
-                        if (pos.y + size.y * s > mask_pos.y + mask_size.y) {
+                        if (p2.y > mask_pos.y + mask_size.y) {
                             // clip +y
                             float prev_sy = size.y;
-                            size.y = (mask_pos.y + mask_size.y - pos.y) / s;
+                            size.y = (mask_pos.y + mask_size.y - p1.y) / fs;
                             tex_size.y *= size.y / prev_sy;
                         }
 
-                        submit_glyph(pos, pos + size * s, tex, tex + tex_size, color, s);
+                        submit_glyph(p1, p2, tex, tex + tex_size, color, fs);
+                        if (bounds != nullptr) {
+                            if (bounds_set) {
+                                bounds->min = {
+                                    std::min(p1.x, bounds->min.x),
+                                    std::min(p1.y, bounds->min.y),
+                                };
+                                bounds->max = {
+                                    std::max(p2.x, bounds->max.x),
+                                    std::max(p2.y, bounds->max.y),
+                                };
+                            } else {
+                                bounds_set = true;
+                                bounds->min = p1;
+                                bounds->max = p2;
+                            }
+                        }
                     }
-                    cursor_offset.x += (float)glyph.xadvance * s;
+                    cursor_offset.x += (float)glyph.xadvance * fs;
                 }
             }
-            if (max_size != nullptr)
-                *max_size = {
-                    std::max(cursor_offset.x, max_size->x),
-                    std::max(cursor_offset.y, max_size->y),
-                };
         }
 
         void before_flush() {
