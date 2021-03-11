@@ -102,7 +102,7 @@ namespace opengl { namespace renderer {
             glUniform1i(u_text_atlas.location, 0);
 
             vao.bind();
-            opengl::set_layout<glm::vec2, glm::vec2, glm::vec4, float>();
+            opengl::vertex_array::set_layout<glm::vec2, glm::vec2, glm::vec4, float>();
             vao.unbind();
         }
 

@@ -1,46 +1,36 @@
 #include <coel/application.hpp>
-#include <filesystem>
+#include <coel/opengl/renderers/quad.hpp>
 
 class my_app : public coel::application {
+    opengl::renderer::quad quad;
 
-    // clang-format off
-    static inline constexpr std::array quad_vertices = {
-        -1.0f, -1.0f,
-        -1.0f,  1.0f,
-         1.0f,  1.0f,
-         1.0f, -1.0f,
-    };
-    // clang-format on
-
-    opengl::vertex_array vao;
-    opengl::vertex_buffer vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
+    std::filesystem::path shader_path = std::filesystem::current_path() / "shader_toy/shaders/first.glsl";
     opengl::shader_program shader;
     opengl::shader_uniform u_viewport_dim;
+    coel::clock::time_point prev_update_time;
 
   public:
     my_app() : coel::application({800, 600}, "Shader Toy") {
-        use_vsync(false);
-
-        vao.bind();
-        vbo.bind();
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, reinterpret_cast<const void *>(0));
-        vao.unbind();
-
+        use_vsync(true);
         reload_shader();
     }
 
     void reload_shader() {
-        shader = opengl::shader_program("shader_toy/shaders/first.glsl");
+        shader = opengl::shader_program(shader_path);
         u_viewport_dim = shader.find_uniform("viewport_dim");
+        prev_update_time = coel::clock::now();
     }
 
     void on_draw() {
         shader.bind();
-        shader.send(u_viewport_dim, glm::vec2(frame_dim));
+        opengl::shader_program::send(u_viewport_dim, glm::vec2(frame_dim));
+        quad.draw();
+    }
 
-        vao.bind();
-        glDrawArrays(GL_QUADS, 0, 4);
+    void on_update(coel::duration) {
+        using namespace std::chrono_literals;
+        if (now - prev_update_time > 0.1s && is_active)
+            reload_shader();
     }
 };
 

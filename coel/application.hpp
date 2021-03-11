@@ -8,9 +8,11 @@
 #include <fmt/core.h>
 
 #include <thread>
-using namespace std::chrono_literals;
 
 namespace coel {
+    using clock = std::chrono::steady_clock;
+    using duration = std::chrono::duration<long double>;
+
     class application {
         class glfw_app {
           public:
@@ -110,7 +112,7 @@ namespace coel {
 
         glfw_app glfw = glfw_app(frame_dim, title);
 
-        double now = glfwGetTime();
+        std::chrono::steady_clock::time_point now;
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
         glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
 
@@ -118,7 +120,7 @@ namespace coel {
         opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("voxel/assets/textures/RobotoFontAtlas.png");
 
         // debug info
-        double debug_frame_begin = 0;
+        std::chrono::steady_clock::time_point debug_frame_begin;
         unsigned int debug_frames_passed = 0, debug_prev_frames_passed = 1;
         glm::vec2 debug_text_pos = {16, 16};
 
@@ -135,7 +137,7 @@ namespace coel {
 
         virtual void on_draw() {}
         virtual void on_resize() {}
-        virtual void on_update(double) {}
+        virtual void on_update(duration) {}
         virtual void on_pause() {}
         virtual void on_resume() {}
 
@@ -144,6 +146,8 @@ namespace coel {
             glfwSetWindowUserPointer(glfw.window_ptr, this);
             use_vsync(true);
             set_callbacks();
+            now = std::chrono::steady_clock::now();
+            debug_frame_begin = now;
         }
 
         virtual ~application() {}
@@ -154,13 +158,14 @@ namespace coel {
 
         bool update() {
             glfwPollEvents();
+            using namespace std::chrono_literals;
             if (is_active) {
-                double new_now = glfwGetTime();
-                on_update(new_now - now);
+                auto new_now = std::chrono::steady_clock::now();
+                on_update(duration(new_now - now));
                 now = new_now;
                 // debug info
                 ++debug_frames_passed;
-                if (now - debug_frame_begin > 1.0) {
+                if (now - debug_frame_begin > 1s) {
                     debug_prev_frames_passed = debug_frames_passed;
                     debug_frames_passed = 0;
                     debug_frame_begin = now;

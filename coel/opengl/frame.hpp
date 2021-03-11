@@ -76,17 +76,15 @@ namespace opengl {
         }
 
         template <GLenum target>
-        inline void attach(const texture<target, std::uint8_t, glm::uvec2> &tex, unsigned int gl_attachment_id) {
-            bind();
+        static inline void attach(const texture<target, std::uint8_t, glm::uvec2> &tex, unsigned int gl_attachment_id) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, gl_attachment_id, target, tex.id, 0);
         }
 
-        inline void attach(const renderbuffer &rbo, unsigned int gl_attachment_id) {
-            bind();
+        static inline void attach(const renderbuffer &rbo, unsigned int gl_attachment_id) {
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, gl_attachment_id, GL_RENDERBUFFER, rbo.id);
         }
 
-        void verify() {
+        static void verify() {
             if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                 std::cout << "failed to complete creation of framebuffer\n";
         }

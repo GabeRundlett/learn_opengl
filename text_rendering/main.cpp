@@ -136,6 +136,7 @@ class game_app : public coel::application {
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
     opengl::shader_program shader = opengl::shader_program({.filepath = "text_rendering/assets/quad_vert.glsl"}, {.filepath = "text_rendering/assets/quad_frag.glsl"});
+    opengl::shader_uniform u_glyph_tex;
     opengl::texture2d<glm::vec4> glyph_tex;
 
     game_app() : coel::application({400, 400}, "text rendering") {
@@ -143,9 +144,7 @@ class game_app : public coel::application {
         on_char('a');
 
         vao.bind();
-        vbo.bind();
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, reinterpret_cast<const void *>(0));
+        opengl::vertex_array::set_layout<glm::vec2>();
         vao.unbind();
     }
 
@@ -154,6 +153,7 @@ class game_app : public coel::application {
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.bind();
+        opengl::shader_program::send(u_glyph_tex, 0);
         glyph_tex.bind(0);
 
         vao.bind();
@@ -166,8 +166,8 @@ class game_app : public coel::application {
     void on_char(unsigned int charcode) override {
         auto glyph = arial.get_contour(charcode);
         shader.send_array(shader.find_uniform("u_glyph_edges"), (const glm::vec4 *)glyph.edges.data(), (unsigned int)glyph.edges.size() * 2);
-        shader.send(shader.find_uniform("u_glyph_edge_count"), (int)glyph.edges.size());
-        shader.send(shader.find_uniform("u_glyph_scale"), 1.0f / arial.face->units_per_EM);
+        opengl::shader_program::send(shader.find_uniform("u_glyph_edge_count"), (int)glyph.edges.size());
+        opengl::shader_program::send(shader.find_uniform("u_glyph_scale"), 1.0f / arial.face->units_per_EM);
     }
 };
 
