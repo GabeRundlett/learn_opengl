@@ -292,7 +292,7 @@ namespace graphics {
 
     struct menu_ui {
         opengl::renderer::ui_batch ui;
-        opengl::renderer::text_batch text = opengl::renderer::text_batch("voxel_game/assets/textures/RobotoFontAtlas.png");
+        opengl::renderer::text_batch text = opengl::renderer::text_batch("voxel/assets/textures/RobotoFontAtlas.png");
 
         std::vector<button> buttons;
         std::vector<slider> sliders;
@@ -319,7 +319,7 @@ namespace graphics {
                 elem.hover(mouse_pos);
         }
 
-        void mouse_press(int , int action, int , const glm::vec2 mouse_pos) {
+        void mouse_press(int, int action, int, const glm::vec2 mouse_pos) {
             if (action == GLFW_PRESS) {
                 for (auto &elem : buttons)
                     elem.press();

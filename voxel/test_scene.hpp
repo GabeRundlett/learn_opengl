@@ -97,7 +97,6 @@ struct test_scene {
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(6 * sizeof(float)));
         cube_vao.unbind();
 
-        player.init();
         u_cam_pos = shader.find_uniform("u_cam_pos");
         u_cube_pos = shader.find_uniform("u_cube_pos");
         u_cube_dim = shader.find_uniform("u_cube_dim");

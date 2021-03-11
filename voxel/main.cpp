@@ -1,4 +1,4 @@
-#include <voxel_game/app.hpp>
+#include "app.hpp"
 
 int main() {
     game_app game;

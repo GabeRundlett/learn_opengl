@@ -138,16 +138,29 @@ float fractal_noise(vec2 sample_pos, fractal_noise_conifg config) {
     return value;
 }
 
-bool intersect(vec2 p) {
-    fractal_noise_conifg conf;
-    conf.amplitude = 0.5f;
-    conf.persistance = 0.5f;
-    conf.scale = 0.025f;
-    conf.lacunarity = 2.0f;
-    conf.octaves = 1;
-    float threshold = 0;
 
-    return fractal_noise(fast_floor(p), conf) > threshold;
+fractal_noise_conifg noise_conf;
+float threshold = 0;
+
+bool intersect(vec2 p) {
+    return fractal_noise(fast_floor(p), noise_conf) > threshold;
+}
+
+vec3 get_color(float value, vec2 p) {
+    float delta = 1;
+    vec2 value_at_offset = vec2(
+        fractal_noise(fast_floor(p) - vec2(delta, 0), noise_conf),
+        fractal_noise(fast_floor(p) - vec2(0, delta), noise_conf)
+    );
+    vec2 slope = (vec2(value) - value_at_offset) / delta;
+    // return vec3((slope) * 10, 0);
+    if (dot(slope, vec2(0, 2)) - value > 0) {
+        return vec3(0.3, 0.5, 0.12);
+    } else if (dot(slope, vec2(0, 6)) - value > 0) {
+        return vec3(0.4, 0.25, 0.12);
+    } else {
+        return vec3(0.25, 0.25, 0.25);
+    }
 }
 
 float segment_dist(vec2 p, vec2 c1, vec2 c2) {
@@ -208,11 +221,79 @@ bool raycast(in vec2 ray_origin, inout vec2 ray_pos, in vec2 ray_dir) {
 // ACCURATE METHOD
 bool raycast(in vec2 ray_origin, inout vec2 ray_pos, in vec2 ray_dir) {
     ray_pos = ray_origin;
+    
+    vec2 ray_p = fast_floor(ray_origin);
+    vec2 ray_offset = ray_origin - ray_p;
+    vec2 ray_d = -ray_offset;
+
+    ivec2 ray_step = ivec2(-1);
+
+    if (ray_dir.x > 0) {
+        ray_d.x += 1;
+        ray_step.x = 1;
+    }
+    if (ray_dir.y > 0) {
+        ray_d.y += 1;
+        ray_step.y = 1;
+    }
+
+    vec2 ray_step_slope = vec2(ray_dir.y / ray_dir.x, ray_dir.x / ray_dir.y);
+    
+    vec2 to_travel_x = vec2(
+        ray_d.x,
+        ray_step_slope.x * ray_d.x
+    );
+
+    vec2 to_travel_y = vec2(
+        ray_step_slope.y * ray_d.y,
+        ray_d.y
+    );
+
+    int iter = 0;
+    while (iter < u_max_iter) {
+        while (iter < u_max_iter && to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x) {
+            ray_pos += to_travel_x;
+
+            if (intersect(ray_pos + vec2(ray_step.x * 0.001, 0))) {
+                ray_pos.x += ray_step.x * 0.001;
+                return true;
+            }
+            
+            to_travel_y -= to_travel_x;
+            to_travel_x = vec2(
+                ray_step.x,
+                ray_step_slope.x * ray_step.x
+            );
+            ++iter;
+        }
+        while (iter < u_max_iter && to_travel_x.x * ray_step.x >= to_travel_y.x * ray_step.x) {
+            ray_pos += to_travel_y;
+
+            if (intersect(ray_pos + vec2(0, ray_step.y * 0.001))) {
+                ray_pos.y += ray_step.y * 0.001;
+                return true;
+            }
+
+            to_travel_x -= to_travel_y;
+            to_travel_y = vec2(
+                ray_step_slope.y * ray_step.y,
+                ray_step.y
+            );
+            ++iter;
+        }
+    }
+
     return false;
 }
 #endif
 
 void main() {
+    noise_conf.amplitude = 0.5f;
+    noise_conf.persistance = 0.4f;
+    noise_conf.scale = 0.025f;
+    noise_conf.lacunarity = 2.0f;
+    noise_conf.octaves = 4;
+
     ivec2 tile_pos = fast_floor(v_pos);
     
     vec2 ray_origin = -u_player_pos;
@@ -225,15 +306,19 @@ void main() {
         col = vec4(1, 0, 0, 1);
     } else if (segment_dist(v_pos, ray_origin, ray_pos) < 0.01 / u_scale) {
         col = vec4(0.9, 0.5, 0.9, 1);
-    // } else if (segment_dist(v_pos, ray_origin, ray_origin + ray_dir * max_steps * step_delta) < 0.01 / u_scale) {
-    //     col = vec4(0.5, 0.5, 0.5, 1);
     } else {
-        col = vec4(vec3(intersect(v_pos)), 1);
+        float value = fractal_noise(fast_floor(v_pos), noise_conf);
+        bool intersects = value > threshold;
+        col = vec4(intersects ? get_color(value, v_pos) : vec3(0.12, 0.11, 0.1), 1);
     }
     
-    if (hit) {
-        if (length(v_pos - ray_pos) < 0.02 / u_scale) {
-            col = vec4(1, 0, 1, 1);
+    if (length(v_pos - ray_pos) < 0.02 / u_scale) {
+        if (length(v_pos - ray_pos) < 0.015 / u_scale) {
+            float value = fractal_noise(fast_floor(ray_pos), noise_conf);
+            bool intersects = value > threshold;
+            col = vec4(intersects ? get_color(value, ray_pos) : vec3(0.12, 0.11, 0.1), 1);
+        } else {
+            col = vec4(hit ? vec3(1, 1, 1) : vec3(1, 0, 0), 1);
         }
     }
 }

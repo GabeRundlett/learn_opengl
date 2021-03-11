@@ -9,7 +9,7 @@
 #include <coel/opengl/core.hpp>
 #include <coel/graphics/ui.hpp>
 
-#include <voxel_game/test_scene.hpp>
+#include "test_scene.hpp"
 
 #include <vector>
 #include <thread>
@@ -70,7 +70,7 @@ class game_app {
     opengl::vertex_array scene_frame_vao;
     opengl::vertex_buffer scene_frame_quad_vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
     opengl::framebuffer scene_frame;
-    opengl::shader_program scene_frame_shader = opengl::shader_program({.filepath = "voxel_game/assets/shaders/scene_frame_vert.glsl"}, {.filepath = "voxel_game/assets/shaders/scene_frame_frag.glsl"});
+    opengl::shader_program scene_frame_shader = opengl::shader_program({.filepath = "voxel/assets/shaders/scene_frame_vert.glsl"}, {.filepath = "voxel/assets/shaders/scene_frame_frag.glsl"});
     opengl::shader_uniform
         u_scene_frame_gamma,
         u_scene_frame_exposure,
@@ -128,8 +128,7 @@ class game_app {
             .use_mipmap = false,
         });
         scene_frame_depth_rbo.regenerate({
-            .width = scene_frame_dim.x,
-            .height = scene_frame_dim.y,
+            .dim = {scene_frame_dim.x, scene_frame_dim.y},
             .gl_format = GL_DEPTH24_STENCIL8,
         });
         scene_frame.verify();
@@ -198,7 +197,7 @@ class game_app {
                     break;
                 case GLFW_KEY_R:
                     system("CLS");
-                    game.scene.shader = opengl::shader_program({.filepath = "voxel_game/assets/shaders/scene_vert.glsl"}, {.filepath = "voxel_game/assets/shaders/scene_frag.glsl"});
+                    game.scene.shader = opengl::shader_program({.filepath = "voxel/assets/shaders/scene_vert.glsl"}, {.filepath = "voxel/assets/shaders/scene_frag.glsl"});
                     for (auto &s : game.menu.sliders)
                         s.on_change(&game, s.range.convert(s.value));
                     break;
@@ -209,7 +208,7 @@ class game_app {
             if (game.is_paused) {
                 game.menu.process_key(button, scancode, action, mods);
             } else {
-                game.scene.player.key_press(button, scancode, action, mods);
+                game.scene.player.key_press({button, scancode, action, mods});
             }
         });
         glfwSetWindowIconifyCallback(glfw.window, [](GLFWwindow *glfw_window, int mode) -> void {

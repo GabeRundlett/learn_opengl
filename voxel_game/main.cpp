@@ -26,7 +26,7 @@ class voxel_game : public coel::application {
 
     player2d player;
     float zoom_scale = 0.1f;
-    int max_iter = 0;
+    int max_iter = 100;
 
     static inline constexpr std::array quad_vertices = {
         // clang-format off

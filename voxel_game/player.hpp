@@ -1,3 +1,4 @@
+#include <coel/application.hpp>
 #include <coel/graphics/camera.hpp>
 
 #define GLFW_INCLUDE_NONE

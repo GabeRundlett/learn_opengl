@@ -6,5 +6,6 @@ add_subdirectory(coel)
 
 add_subdirectory(simple_game)
 add_subdirectory(voxel_game)
+add_subdirectory(voxel)
 add_subdirectory(shader_toy)
 add_subdirectory(text_rendering)
