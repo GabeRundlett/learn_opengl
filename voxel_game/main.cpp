@@ -3,7 +3,6 @@
 // #include "chunk.hpp"
 #include "player2d.hpp"
 #include "chunk2d.hpp"
-#include "deferred.hpp"
 
 class voxel_game : public coel::application {
     opengl::shader_program tile_shader = opengl::shader_program(
@@ -44,18 +43,19 @@ class voxel_game : public coel::application {
     }
 
     void shader_init() {
-        tile_shader.bind();
         u_player_pos = tile_shader.find_uniform("u_player_pos");
         u_mouse_pos = tile_shader.find_uniform("u_mouse_pos");
         u_max_iter = tile_shader.find_uniform("u_max_iter");
         u_scale = tile_shader.find_uniform("u_scale");
         u_aspect = tile_shader.find_uniform("u_aspect");
         u_tilemap_tex = tile_shader.find_uniform("u_tilemap_tex");
-        tile_shader.send(u_scale, zoom_scale);
-        tile_shader.send(u_player_pos, player.pos);
-        tile_shader.send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
-        tile_shader.send(u_mouse_pos, screen_to_world(mouse_pos));
-        tile_shader.send(u_max_iter, max_iter);
+
+        tile_shader.bind();
+        opengl::shader_program::send(u_scale, zoom_scale);
+        opengl::shader_program::send(u_player_pos, player.pos);
+        opengl::shader_program::send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
+        opengl::shader_program::send(u_mouse_pos, screen_to_world(mouse_pos));
+        opengl::shader_program::send(u_max_iter, max_iter);
     }
 
   public:
@@ -63,16 +63,16 @@ class voxel_game : public coel::application {
         show_debug_menu = true;
         shader_init();
 
-        tile_shader.send(u_scale, zoom_scale);
         frame_quad_vao.bind();
-        opengl::set_layout<glm::vec2>();
+        opengl::vertex_array::set_layout<glm::vec2>();
     }
 
     void on_update(double elapsed) {
         player.update(elapsed);
+
         tile_shader.bind();
-        tile_shader.send(u_player_pos, player.pos);
-        tile_shader.send(u_mouse_pos, screen_to_world(mouse_pos));
+        opengl::shader_program::send(u_player_pos, player.pos);
+        opengl::shader_program::send(u_mouse_pos, screen_to_world(mouse_pos));
     }
 
     void on_draw() {
@@ -81,7 +81,7 @@ class voxel_game : public coel::application {
         glClear(GL_COLOR_BUFFER_BIT);
 
         tile_shader.bind();
-        tile_shader.send(u_tilemap_tex, 0);
+        opengl::shader_program::send(u_tilemap_tex, 0);
         tilemap.bind(0);
 
         frame_quad_vao.bind();
@@ -100,11 +100,11 @@ class voxel_game : public coel::application {
                 break;
             case GLFW_KEY_UP:
                 tile_shader.bind();
-                tile_shader.send(u_max_iter, ++max_iter);
+                opengl::shader_program::send(u_max_iter, ++max_iter);
                 break;
             case GLFW_KEY_DOWN:
                 tile_shader.bind();
-                tile_shader.send(u_max_iter, --max_iter);
+                opengl::shader_program::send(u_max_iter, --max_iter);
                 break;
             }
         }
@@ -112,7 +112,7 @@ class voxel_game : public coel::application {
 
     void on_resize() {
         tile_shader.bind();
-        tile_shader.send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
+        opengl::shader_program::send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
     }
 
     void on_mouse_scroll(const glm::dvec2 offset) {
@@ -120,7 +120,7 @@ class voxel_game : public coel::application {
         if (zoom_scale < 0.001f)
             zoom_scale = 0.001f;
         tile_shader.bind();
-        tile_shader.send(u_scale, zoom_scale);
+        opengl::shader_program::send(u_scale, zoom_scale);
     }
 };
 

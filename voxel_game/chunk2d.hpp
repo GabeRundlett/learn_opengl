@@ -35,8 +35,7 @@ class chunk2d : public opengl::batch<chunk2d, chunk2d_vertex, 4 * chunk_size.x *
         }
 
         vao.bind();
-        opengl::set_layout<glm::vec2, glm::vec2>();
-        vao.unbind();
+        opengl::vertex_array::set_layout<glm::vec2, glm::vec2>();
 
         begin();
         for (int yi = 0; yi < chunk_size.y; ++yi) {

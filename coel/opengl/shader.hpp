@@ -10,6 +10,7 @@
 #include <regex>
 #include <sstream>
 #include <string_view>
+#include <filesystem>
 
 namespace opengl {
     namespace detail {
@@ -30,7 +31,7 @@ namespace opengl {
             std::size_t line_num = 0;
         };
 
-        std::vector<shader_info> load_shader(const char *const filepath) {
+        std::vector<shader_info> load_shader(const std::filesystem::path &filepath) {
             std::ifstream shader_file(filepath);
             std::vector<shader_info> result_vec{};
             if (shader_file.is_open()) {
@@ -151,7 +152,7 @@ namespace opengl {
 
             bind();
         }
-        shader_program(const char *const custom_shader_filepath) : shader_program() {
+        shader_program(const std::filesystem::path &custom_shader_filepath) : shader_program() {
             auto shader_infos = detail::load_shader(custom_shader_filepath);
 
             shader<GL_VERTEX_SHADER> vert_shader({
@@ -212,34 +213,33 @@ namespace opengl {
         }
 
         inline shader_uniform find_uniform(const char *const name) const {
-            bind();
             return {.location = glGetUniformLocation(id, name)};
         }
 
-        void send(const shader_uniform &uniform, int value) const { glUniform1i(uniform.location, value); }
-        void send(const shader_uniform &uniform, float value) const { glUniform1f(uniform.location, value); }
-        void send(const shader_uniform &uniform, const glm::vec2 &v) const {
+        static void send(const shader_uniform &uniform, int value) { glUniform1i(uniform.location, value); }
+        static void send(const shader_uniform &uniform, float value) { glUniform1f(uniform.location, value); }
+        static void send(const shader_uniform &uniform, const glm::vec2 &v) {
             glUniform2fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
         }
-        void send(const shader_uniform &uniform, const glm::vec3 &v) const {
+        static void send(const shader_uniform &uniform, const glm::vec3 &v) {
             glUniform3fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
         }
-        void send(const shader_uniform &uniform, const glm::vec4 &v) const {
+        static void send(const shader_uniform &uniform, const glm::vec4 &v) {
             glUniform4fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
         }
-        void send(const shader_uniform &uniform, const glm::mat4 &m) const {
+        static void send(const shader_uniform &uniform, const glm::mat4 &m) {
             glUniformMatrix4fv(uniform.location, 1, false, reinterpret_cast<const float *>(&m));
         }
-        void send_array(const shader_uniform &uniform, const glm::vec2 *const v, const unsigned int count) const {
+        static void send_array(const shader_uniform &uniform, const glm::vec2 *const v, const unsigned int count) {
             glUniform2fv(uniform.location, count, reinterpret_cast<const float *>(v));
         }
-        void send_array(const shader_uniform &uniform, const glm::vec3 *const v, const unsigned int count) const {
+        static void send_array(const shader_uniform &uniform, const glm::vec3 *const v, const unsigned int count) {
             glUniform3fv(uniform.location, count, reinterpret_cast<const float *>(v));
         }
-        void send_array(const shader_uniform &uniform, const glm::vec4 *const v, const unsigned int count) const {
+        static void send_array(const shader_uniform &uniform, const glm::vec4 *const v, const unsigned int count) {
             glUniform4fv(uniform.location, count, reinterpret_cast<const float *>(v));
         }
-        void send_array(const shader_uniform &uniform, const glm::mat4 *const m, const unsigned int count) const {
+        static void send_array(const shader_uniform &uniform, const glm::mat4 *const m, const unsigned int count) {
             glUniformMatrix4fv(uniform.location, count, false, reinterpret_cast<const float *>(m));
         }
     };

@@ -111,4 +111,43 @@ namespace opengl { namespace renderer {
             frag_col.w *= opacity;
         }
     )"";
+
+    static constexpr const char *const deferred3d_vert = R""(
+        #version 440 core
+
+        layout(location = 0) in vec2 a_pos;
+
+        out vec2 v_tex;
+
+        void main() {
+            v_tex = a_pos * 0.5 + 0.5;
+            gl_Position = vec4(a_pos, 0, 1);
+        }
+    )"";
+
+    static constexpr const char *const deferred3d_frag = R""(
+        #version 440 core
+
+        in vec2 v_tex;
+        out vec4 col;
+
+        uniform sampler2D u_frame_pos_tex;
+        uniform sampler2D u_frame_nrm_tex;
+        uniform sampler2D u_frame_col_tex;
+
+        uniform float u_gamma;
+        uniform float u_exposure;
+        uniform vec3 u_cam_pos;
+
+        void main() {
+            vec3 hdr_color = texture(u_frame_col_tex, v_tex).rgb;
+            vec3 position = texture(u_frame_pos_tex, v_tex).xyz;
+            vec3 normal = texture(u_frame_nrm_tex, v_tex).rgb;
+
+            vec3 col_mapped = vec3(1.0) - exp(-diff * u_exposure);
+            col_mapped = pow(col_mapped, vec3(1.0f / u_gamma));
+
+            col = vec4(col_mapped, 1);
+        }
+    )"";
 }} // namespace opengl::renderer
