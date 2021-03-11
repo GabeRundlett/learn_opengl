@@ -1,6 +1,6 @@
 #pragma once
 
-#include <coel/opengl/renderers/batch.hpp>
+#include <coel/opengl/batch.hpp>
 #include <coel/opengl/shader.hpp>
 #include <coel/opengl/renderers/shaders.hpp>
 

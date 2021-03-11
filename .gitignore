@@ -3,7 +3,6 @@
 *.out
 *.dll
 *.lib
-*.obj
 *.bin
 *.ilk
 *.pdb

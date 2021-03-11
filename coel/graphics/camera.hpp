@@ -6,7 +6,6 @@
 namespace graphics {
     struct camera3d {
         glm::vec3 pos = {0, 0, 0}, rot = {0, 0, 0};
-        float move_speed = 1.0f;
         float fov = glm::radians(90.0f), aspect = 1.0f, znear = 0.01f, zfar = 1000.0f;
 
         glm::vec3 look = {0, 0, 1}, look_bi = {-1, 0, 0}, look_up = {0, 1, 0};

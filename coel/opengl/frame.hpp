@@ -10,7 +10,7 @@ namespace opengl {
         unsigned int id;
 
         struct configuration {
-            unsigned int width, height;
+            glm::uvec2 dim;
             unsigned int gl_format;
         };
 
@@ -39,7 +39,7 @@ namespace opengl {
         }
 
         void regenerate(const configuration &conf) {
-            glRenderbufferStorage(GL_RENDERBUFFER, conf.gl_format, conf.width, conf.height);
+            glRenderbufferStorage(GL_RENDERBUFFER, conf.gl_format, conf.dim.x, conf.dim.y);
         }
 
         inline void bind() {

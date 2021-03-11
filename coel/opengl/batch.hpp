@@ -4,11 +4,7 @@
 #include <coel/opengl/buffers.hpp>
 #include <vector>
 
-namespace opengl { namespace renderer {
-    struct component_bounds {
-        glm::vec2 min, max;
-    };
-
+namespace opengl {
     template <typename self_t, typename vertex_t, std::size_t max_vcount_i, std::size_t max_icount_i>
     class batch {
       protected:
@@ -21,32 +17,20 @@ namespace opengl { namespace renderer {
             ibuffer_size = sizeof(unsigned int) * max_icount;
 
         opengl::vertex_array vao;
-        unsigned int vbo_id, ibo_id;
+        opengl::vertex_buffer_dynamic vbo = opengl::vertex_buffer_dynamic(nullptr, sizeof(vertex) * max_vcount);
+        opengl::index_buffer_dynamic ibo = opengl::index_buffer_dynamic(nullptr, sizeof(unsigned int) * max_icount);
 
         unsigned int current_vcount = 0, current_icount = 0;
         vertex *vbuffer_ptr = nullptr;
         unsigned int *ibuffer_ptr = nullptr;
 
       public:
-        batch() {
-            glGenBuffers(1, &vbo_id);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-            glBufferData(GL_ARRAY_BUFFER, vbuffer_size, nullptr, GL_DYNAMIC_DRAW);
-
-            glGenBuffers(1, &ibo_id);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, ibuffer_size, nullptr, GL_DYNAMIC_DRAW);
-
-            vao.unbind();
-        }
-
         void begin() {
             vao.bind();
-            glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
-
-            vbuffer_ptr = reinterpret_cast<decltype(vbuffer_ptr)>(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE));
-            ibuffer_ptr = reinterpret_cast<decltype(ibuffer_ptr)>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_WRITE));
+            vbuffer_ptr = vbo.map<vertex>();
+            ibuffer_ptr = ibo.map<unsigned int>();
+            current_vcount = 0;
+            current_icount = 0;
         }
 
         template <std::size_t vcount, std::size_t icount>
@@ -89,21 +73,17 @@ namespace opengl { namespace renderer {
         }
 
         void end() {
-            glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
-
-            glUnmapBuffer(GL_ARRAY_BUFFER);
-            glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+            vbo.unmap();
+            vbo.unbind();
+            ibo.unmap();
+            ibo.unbind();
         }
 
         void flush() {
             static_cast<self_t *>(this)->before_flush();
             vao.bind();
-            glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_id);
+            ibo.bind();
             glDrawElements(GL_TRIANGLES, current_icount, GL_UNSIGNED_INT, nullptr);
-            current_vcount = 0;
-            current_icount = 0;
         }
     };
-}} // namespace opengl::renderer
+} // namespace opengl

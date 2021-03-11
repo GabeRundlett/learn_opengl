@@ -1,9 +1,6 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
+#include <coel/input.hpp>
 #include <coel/opengl/core.hpp>
 #include <coel/opengl/renderers/ui_batch.hpp>
 #include <coel/opengl/renderers/text_batch.hpp>
@@ -54,8 +51,16 @@ namespace coel {
             glfwSetCursorPosCallback(glfw.window_ptr, [](GLFWwindow *glfw_window_ptr, double mouse_x, double mouse_y) -> void {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
-                    app_ptr->mouse_pos = {(float)mouse_x, (float)mouse_y};
+                    app_ptr->mouse_pos_diff = glm::vec2(mouse_x, mouse_y) - app_ptr->mouse_pos;
+                    app_ptr->mouse_pos = glm::vec2(mouse_x, mouse_y);
                     app_ptr->on_mouse_move();
+                }
+            });
+
+            glfwSetScrollCallback(glfw.window_ptr, [](GLFWwindow *glfw_window_ptr, double offset_x, double offset_y) -> void {
+                auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
+                if (app_ptr) {
+                    app_ptr->on_mouse_scroll(glm::dvec2{offset_x, offset_y});
                 }
             });
 
@@ -107,7 +112,7 @@ namespace coel {
 
         double now = glfwGetTime();
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
-        glm::vec2 mouse_pos;
+        glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
 
         opengl::renderer::ui_batch ui_batch;
         opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("voxel/assets/textures/RobotoFontAtlas.png");
@@ -122,19 +127,8 @@ namespace coel {
             is_paused ? on_pause() : on_resume();
         }
 
-        struct mouse_button_event {
-            int button;
-            int action;
-            int mods;
-        };
-        struct key_event {
-            int key;
-            int scancode;
-            int action;
-            int mods;
-        };
-
         virtual void on_mouse_move() {}
+        virtual void on_mouse_scroll(const glm::dvec2) {}
         virtual void on_mouse_button(const mouse_button_event &) {}
         virtual void on_key(const key_event &) {}
         virtual void on_char(unsigned int) {}
@@ -166,7 +160,7 @@ namespace coel {
                 now = new_now;
                 // debug info
                 ++debug_frames_passed;
-                if (now - debug_frame_begin > 0.1) {
+                if (now - debug_frame_begin > 1.0) {
                     debug_prev_frames_passed = debug_frames_passed;
                     debug_frames_passed = 0;
                     debug_frame_begin = now;
@@ -192,11 +186,11 @@ namespace coel {
                     debug_text_pos,
                     fmt::format(
                         "Frames/s: {}\nWindow Size: ({}, {})",
-                        10.0 * debug_prev_frames_passed,
+                        debug_prev_frames_passed,
                         frame_dim.x, frame_dim.y),
                     14.0f, text_col, &bounds);
 
-                ui_batch.submit_rect(bounds.min - border, bounds.max - bounds.min + border * 2.0f, {0.1f, 0.1f, 0.1f, 0.5f});
+                ui_batch.submit_rect(bounds.min - border, bounds.max - bounds.min + border * 2.0f, {0.0f, 0.0f, 0.0f, 0.5f});
             }
 
             ui_batch.end();
@@ -219,7 +213,9 @@ namespace coel {
         inline void use_raw_mouse(bool should_use_raw) const {
             glfwSetInputMode(glfw.window_ptr, GLFW_RAW_MOUSE_MOTION, should_use_raw ? GLFW_TRUE : GLFW_FALSE);
         }
-        inline void set_mouse_capture(bool should_capture) const {
+        inline void set_mouse_capture(bool should_capture) {
+            glfwSetCursorPos(glfw.window_ptr, frame_dim.x / 2, frame_dim.y / 2);
+            mouse_pos = glm::vec2(frame_dim.x / 2, frame_dim.y / 2);
             glfwSetInputMode(glfw.window_ptr, GLFW_CURSOR, should_capture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
     };

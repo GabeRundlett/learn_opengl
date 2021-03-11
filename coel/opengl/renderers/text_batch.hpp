@@ -1,6 +1,6 @@
 #pragma once
 
-#include <coel/opengl/renderers/batch.hpp>
+#include <coel/opengl/batch.hpp>
 #include <coel/opengl/shader.hpp>
 #include <coel/opengl/texture.hpp>
 #include <coel/opengl/renderers/shaders.hpp>
@@ -14,6 +14,11 @@
 // #include FT_FREETYPE_H
 
 namespace opengl { namespace renderer {
+
+    struct component_bounds {
+        glm::vec2 min, max;
+    };
+
     struct text_vertex {
         glm::vec2 pos, tex;
         glm::vec4 col;
@@ -96,21 +101,8 @@ namespace opengl { namespace renderer {
             u_text_atlas = shader.find_uniform("u_text_atlas");
             glUniform1i(u_text_atlas.location, 0);
 
-            std::uint8_t *offset = 0;
-
             vao.bind();
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
-            offset += sizeof(vertex::pos);
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
-            offset += sizeof(vertex::tex);
-            glEnableVertexAttribArray(2);
-            glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
-            offset += sizeof(vertex::col);
-            glEnableVertexAttribArray(3);
-            glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(vertex), offset);
-            offset += sizeof(vertex::font_size);
+            opengl::set_layout<glm::vec2, glm::vec2, glm::vec4, float>();
             vao.unbind();
         }
 

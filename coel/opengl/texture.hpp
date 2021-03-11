@@ -24,7 +24,7 @@ namespace opengl {
             } filter;
             glm::vec4 border_color;
             int samples = 0;
-            std::uint8_t use_mipmap : 1 = false;
+            std::uint8_t use_mipmap : 1 = false, flip_vertically : 1 = false;
         };
 
         texture() {
@@ -52,6 +52,7 @@ namespace opengl {
             if (conf.filepath != nullptr) {
                 if constexpr (target == GL_TEXTURE_2D || target == GL_TEXTURE_2D_MULTISAMPLE) {
                     int width, height, num_channels;
+                    stbi_set_flip_vertically_on_load(conf.flip_vertically);
                     std::uint8_t *data = stbi_load(conf.filepath, &width, &height, &num_channels, 0);
                     if (data == nullptr) {
                         std::cout << "Failed to open texture\n"
@@ -86,6 +87,14 @@ namespace opengl {
                 bind();
                 if constexpr (target == GL_TEXTURE_2D_MULTISAMPLE) {
                     glTexImage2DMultisample(target, conf.samples, conf.gl_format, conf.dim.x, conf.dim.y, false);
+                    glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
+                    glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
+                    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
+                    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, conf.filter.max);
+                    if (conf.use_mipmap)
+                        glGenerateMipmap(target);
+                    if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER)
+                        glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
                 } else if constexpr (target == GL_TEXTURE_2D) {
                     glTexImage2D(target, 0, conf.gl_format, conf.dim.x, conf.dim.y, 0, conf.data_format, conf.data_type, conf.data);
                     glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
