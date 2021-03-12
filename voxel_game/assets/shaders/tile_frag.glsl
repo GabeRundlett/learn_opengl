@@ -1,35 +1,26 @@
 #version 330 core
 
-in vec2 v_pos;
-out vec4 col;
-uniform sampler2D u_tilemap_tex;
-uniform usampler2D u_tiles_tex;
-uniform vec2 u_player_pos;
-uniform vec2 u_mouse_pos;
+in vec3 v_pos;
+in vec3 v_nrm;
+in vec2 v_tex;
 
-uniform vec2 u_ray_pos;
-uniform vec2 u_ray_nrm;
-uniform int u_ray_hit;
+out vec4 col;
+
+uniform sampler2D u_tilemap_tex;
+uniform usampler3D u_tiles_tex;
+uniform vec3 u_cam_pos;
 
 uniform float u_scale;
 
 const int MAX_ITER = 100;
-const int THRESHOLD = 200;
+const int THRESHOLD = 0;
 const float EPSILON = 0.001f;
 
-// int floor(float fp) {
-//     int i = int(fp);
-//     return (fp < i) ? (i - 1) : (i);
-// }
-// ivec2 floor(vec2 fp) {
-//     return ivec2(floor(fp.x), floor(fp.y));
-// }
-
-int sample_tiles(vec2 p) {
+int sample_tiles(vec3 p) {
     return int(texture(u_tiles_tex, p / textureSize(u_tiles_tex, 0)).r) & 0xFF;
 }
 
-bool intersect(vec2 p) {
+bool intersect(vec3 p) {
     return sample_tiles(p) > THRESHOLD;
 }
 
@@ -72,89 +63,96 @@ float segment_dist(vec2 p, vec2 c1, vec2 c2) {
     return sqrt(dx * dx + dy * dy);
 }
 
-bool raycast(vec2 ray_origin, inout vec2 ray_pos, inout vec2 ray_nrm, vec2 ray_dir) {
-    ray_pos = ray_origin;
-    vec2 ray_p = floor(ray_origin);
-    vec2 ray_d = ray_p - ray_origin;
-    ivec2 ray_step = ivec2(-1);
+struct intersection_info {
+    vec3 pos, nrm;
+    int steps;
+    bool hit;
+};
+
+void raycast(vec3 ray_origin, vec3 ray_dir, inout intersection_info i) {
+    i.hit = false;
+    i.pos = ray_origin;
+    vec3 ray_p = floor(ray_origin);
+    vec3 ray_d = ray_p - ray_origin;
+    ivec3 ray_step = ivec3(-1);
     if (ray_dir.x > 0)
         ray_d.x += 1, ray_step.x = 1;
     if (ray_dir.y > 0)
         ray_d.y += 1, ray_step.y = 1;
-    int iter = 0;
-    if (ray_dir.y == 0) {
-        while (iter < MAX_ITER) {
-            ray_pos += vec2(ray_d.x, 0);
-            ray_d.x = float(ray_step.x);
-            if (intersect(ray_pos + vec2(ray_step.x * EPSILON, 0))) {
-                ray_pos.x += ray_step.x * EPSILON;
-                ray_nrm = vec2(-ray_step.x, 0);
-                return true;
+    if (ray_dir.z > 0)
+        ray_d.z += 1, ray_step.z = 1;
+    i.steps = 0;
+    float slope_xy = ray_dir.y / ray_dir.x;
+    float slope_xz = ray_dir.z / ray_dir.x;
+    float slope_yx = ray_dir.x / ray_dir.y;
+    float slope_yz = ray_dir.z / ray_dir.y;
+    float slope_zx = ray_dir.x / ray_dir.z;
+    float slope_zy = ray_dir.y / ray_dir.z;
+    vec3 to_travel_x = vec3(ray_d.x, slope_xy * ray_d.x, slope_xz * ray_d.x);
+    vec3 to_travel_y = vec3(slope_yx * ray_d.y, ray_d.y, slope_yz * ray_d.y);
+    vec3 to_travel_z = vec3(slope_zx * ray_d.z, slope_zy * ray_d.y, ray_d.z);
+    if (ray_dir.x == 0 || ray_dir.y == 0 || ray_dir.z == 0)
+        return;
+    while (i.steps < MAX_ITER) {
+        while (i.steps < MAX_ITER &&
+            to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x && 
+            to_travel_x.x * ray_step.x < to_travel_z.x * ray_step.x) {
+            i.pos += to_travel_x;
+            if (intersect(i.pos + vec3(ray_step.x * EPSILON, 0, 0))) {
+                i.pos.x += ray_step.x * EPSILON;
+                i.nrm = vec3(-ray_step.x, 0, 0);
+                i.hit = true;
+                return;
             }
-            ++iter;
+            to_travel_x = vec3(ray_step.x, slope_xy * ray_step.x, slope_xz * ray_step.x);
+            to_travel_y -= to_travel_x;
+            to_travel_z -= to_travel_x;
+            ++i.steps;
         }
-    } else {
-        vec2 ray_step_slope = vec2(ray_dir.y / ray_dir.x, ray_dir.x / ray_dir.y);
-        vec2 to_travel_x = vec2(ray_d.x, ray_step_slope.x * ray_d.x);
-        vec2 to_travel_y = vec2(ray_step_slope.y * ray_d.y, ray_d.y);
-        while (iter < MAX_ITER) {
-            while (iter < MAX_ITER && to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x) {
-                ray_pos += to_travel_x;
-                if (intersect(ray_pos + vec2(ray_step.x * EPSILON, 0))) {
-                    ray_pos.x += ray_step.x * EPSILON;
-                    ray_nrm = vec2(-ray_step.x, 0);
-                    return true;
-                }
-                to_travel_y -= to_travel_x;
-                to_travel_x = vec2(
-                    ray_step.x,
-                    ray_step_slope.x * ray_step.x);
-                ++iter;
+        while (i.steps < MAX_ITER &&
+            to_travel_y.y * ray_step.y < to_travel_x.y * ray_step.y && 
+            to_travel_y.y * ray_step.y < to_travel_z.y * ray_step.y) {
+            i.pos += to_travel_z;
+            if (intersect(i.pos + vec3(0, ray_step.y * EPSILON, 0))) {
+                i.pos.y += ray_step.y * EPSILON;
+                i.nrm = vec3(0, -ray_step.y, 0);
+                i.hit = true;
+                return;
             }
-            while (iter < MAX_ITER && to_travel_x.x * ray_step.x >= to_travel_y.x * ray_step.x) {
-                ray_pos += to_travel_y;
-                if (intersect(ray_pos + vec2(0, ray_step.y * EPSILON))) {
-                    ray_pos.y += ray_step.y * EPSILON;
-                    ray_nrm = vec2(0, -ray_step.y);
-                    return true;
-                }
-                to_travel_x -= to_travel_y;
-                to_travel_y = vec2(
-                    ray_step_slope.y * ray_step.y,
-                    ray_step.y);
-                ++iter;
-            }
-            ++iter;
+            to_travel_x -= to_travel_y;
+            to_travel_y = vec3(slope_yx * ray_step.y, ray_step.y, slope_yz * ray_step.y);
+            to_travel_z -= to_travel_y;
+            ++i.steps;
         }
+        while (i.steps < MAX_ITER &&
+            to_travel_z.z * ray_step.z < to_travel_y.z * ray_step.z && 
+            to_travel_z.z * ray_step.z < to_travel_x.z * ray_step.z) {
+            i.pos += to_travel_z;
+            if (intersect(i.pos + vec3(0, 0, ray_step.z * EPSILON))) {
+                i.pos.z += ray_step.z * EPSILON;
+                i.nrm = vec3(0, 0, -ray_step.z);
+                i.hit = true;
+                return;
+            }
+            to_travel_x -= to_travel_z;
+            to_travel_y -= to_travel_z;
+            to_travel_z = vec3(slope_zx * ray_step.z, slope_zy * ray_step.y, ray_d.z);
+            ++i.steps;
+        }
+        ++i.steps;
     }
-    return false;
 }
 
 void main() {
-    ivec2 tile_pos = ivec2(floor(v_pos));
-    vec2 ray_origin = -u_player_pos;
-    vec2 ray_pos, ray_nrm;
+    vec3 ray_origin = u_cam_pos;
+    vec3 ray_dir = v_pos - u_cam_pos;
+    intersection_info i;
 
-    bool hit = raycast(ray_origin, ray_pos, ray_nrm, u_mouse_pos - ray_origin);
+    raycast(ray_origin, ray_dir, i);
 
-    if (length(v_pos - u_mouse_pos) < 0.01 / u_scale) {
-        col = vec4(0.1, 0.5, 0.8, 1);
-    } else if (length(v_pos + u_player_pos) < 0.01 / u_scale) {
-        col = vec4(1, 0, 0, 1);
-    } else if (segment_dist(v_pos, ray_origin, ray_pos) < 0.002 / u_scale) {
-        col = vec4(0.9, 0.5, 0.9, 1);
-    } else if (segment_dist(v_pos, ray_pos, ray_pos + ray_nrm * 2) < 0.002 / u_scale) {
-        col = vec4(abs(ray_nrm), 0, 1);
+    if (i.hit) {
+        col = vec4(vec3(1, 0, 0), 1);
     } else {
-        int value = sample_tiles(v_pos);
-        if (value > THRESHOLD) {
-            if (value > 230) {
-                col = texture(u_tilemap_tex, (mod(v_pos, 1) + vec2(0, 2)) * 16.f / 128.f);
-            } else {
-                col = texture(u_tilemap_tex, (mod(v_pos, 1) + vec2(2, 2)) * 16.f / 128.f);
-            }
-        } else {
-            col = vec4(0.12, 0.11, 0.1, 1);
-        }
+        col = vec4(vec3(0, 1, 0), 1);
     }
 }

@@ -55,19 +55,19 @@ struct player3d {
         }
     }
 
-    void update(double elapsed) {
+    void update(coel::duration elapsed) {
         if (move_foreward)
-            cam.pos -= move_speed * cam.look * (float)elapsed;
+            cam.pos -= move_speed * cam.look * (float)elapsed.count();
         if (move_backward)
-            cam.pos += move_speed * cam.look * (float)elapsed;
+            cam.pos += move_speed * cam.look * (float)elapsed.count();
         if (move_left)
-            cam.pos += move_speed * cam.look_bi * (float)elapsed;
+            cam.pos += move_speed * cam.look_bi * (float)elapsed.count();
         if (move_right)
-            cam.pos -= move_speed * cam.look_bi * (float)elapsed;
+            cam.pos -= move_speed * cam.look_bi * (float)elapsed.count();
         if (move_up)
-            cam.pos.y += move_speed * (float)elapsed;
+            cam.pos.y += move_speed * (float)elapsed.count();
         if (move_down)
-            cam.pos.y -= move_speed * (float)elapsed;
+            cam.pos.y -= move_speed * (float)elapsed.count();
 
         cam.update_view();
     }

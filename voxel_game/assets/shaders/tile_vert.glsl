@@ -1,13 +1,18 @@
 #version 440 core
 
-layout(location = 0) in vec2 a_pos;
+layout(location = 0) in vec3 a_pos;
+layout(location = 1) in vec3 a_nrm;
+layout(location = 2) in vec2 a_tex;
 
-out vec2 v_pos;
-uniform vec2 u_player_pos;
-uniform float u_scale;
-uniform float u_aspect;
+out vec3 v_pos;
+out vec3 v_nrm;
+out vec2 v_tex;
+
+uniform mat4 u_view_mat = mat4(1);
+uniform mat4 u_proj_mat;
 
 void main() {
-    v_pos = vec2(a_pos.x * u_aspect, -a_pos.y) / u_scale - u_player_pos;
-    gl_Position = vec4(a_pos, 0, 1);
+    v_pos = a_pos, v_nrm = a_nrm, v_tex = a_tex;
+    mat4 proj_view = u_proj_mat * u_view_mat;
+    gl_Position = proj_view * vec4(v_pos, 1);
 }

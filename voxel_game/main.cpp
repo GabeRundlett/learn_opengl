@@ -1,8 +1,7 @@
 #include <coel/application.hpp>
 // #include "player.hpp"
 // #include "chunk.hpp"
-#include "player2d.hpp"
-#include "chunk2d.hpp"
+#include "player.hpp"
 
 using namespace glm;
 
@@ -12,13 +11,9 @@ class voxel_game : public coel::application {
         {.filepath = "voxel_game/assets/shaders/tile_frag.glsl"});
 
     opengl::shader_uniform
-        u_player_pos,
-        u_mouse_pos,
-        u_ray_pos,
-        u_ray_nrm,
-        u_ray_hit,
-        u_scale,
-        u_aspect,
+        u_view_mat,
+        u_proj_mat,
+        u_cam_pos,
         u_tilemap_tex,
         u_tiles_tex;
 
@@ -28,46 +23,77 @@ class voxel_game : public coel::application {
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
     });
 
-    glm::uvec2 grid_dim = {128, 128};
-    std::vector<glm::u8vec4> tiles = std::vector<glm::u8vec4>(grid_dim.x * grid_dim.y);
-    opengl::texture2d<glm::u8vec4> tiles_tex;
+    glm::uvec3 grid_dim = {128, 128, 128};
+    std::vector<glm::u8vec4> tiles = std::vector<glm::u8vec4>(grid_dim.x * grid_dim.y * grid_dim.z);
+    opengl::texture3d<glm::u8vec4> tiles_tex;
 
-    player2d player;
-    float zoom_scale = 0.1f;
+    player3d player;
 
-    static inline constexpr std::array quad_vertices = {
-        // clang-format off
-        -1.0f, -1.0f,
-        -1.0f,  1.0f,
-         1.0f,  1.0f,
-         1.0f, -1.0f,
-        // clang-format on
+    struct vertex {
+        glm::vec3 pos, nrm;
+        glm::vec2 tex;
     };
-    opengl::vertex_array quad_vao;
-    opengl::vertex_buffer quad_vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
 
-    glm::vec2 screen_to_world(glm::vec2 p) {
-        return glm::vec2((p.x / frame_dim.x - 0.5f) * frame_dim.x / frame_dim.y, p.y / frame_dim.y - 0.5f) / zoom_scale * 2.0f - player.pos;
-    }
+    // clang-format off
+    static inline const std::array cube_vertices = {
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 1.0f}},
+
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 0.0f}},
+        
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 0.0f}},
+    };
+    // clang-format on
+    opengl::vertex_array cube_vao;
+    opengl::vertex_buffer cube_vbo = opengl::vertex_buffer(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0]));
 
     void shader_init() {
-        u_player_pos = tile_shader.find_uniform("u_player_pos");
-        u_mouse_pos = tile_shader.find_uniform("u_mouse_pos");
+        u_view_mat = tile_shader.find_uniform("u_view_mat");
+        u_proj_mat = tile_shader.find_uniform("u_proj_mat");
+        u_cam_pos = tile_shader.find_uniform("u_cam_pos");
 
-        u_ray_pos = tile_shader.find_uniform("u_ray_pos");
-        u_ray_nrm = tile_shader.find_uniform("u_ray_nrm");
-        u_ray_hit = tile_shader.find_uniform("u_ray_hit");
-
-        u_scale = tile_shader.find_uniform("u_scale");
-        u_aspect = tile_shader.find_uniform("u_aspect");
         u_tilemap_tex = tile_shader.find_uniform("u_tilemap_tex");
         u_tiles_tex = tile_shader.find_uniform("u_tiles_tex");
 
         tile_shader.bind();
-        opengl::shader_program::send(u_scale, zoom_scale);
-        opengl::shader_program::send(u_player_pos, player.pos);
-        opengl::shader_program::send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
-        opengl::shader_program::send(u_mouse_pos, screen_to_world(mouse_pos));
+        opengl::shader_program::send(u_cam_pos, player.cam.pos);
+        opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
+        opengl::shader_program::send(u_view_mat, player.cam.view_mat);
     }
 
     static inline constexpr auto MAX_ITER = 1000;
@@ -150,31 +176,33 @@ class voxel_game : public coel::application {
   public:
     voxel_game() : coel::application({1200, 900}, "Voxel Game") {
         show_debug_menu = true;
-        use_vsync(false);
+        // use_vsync(false);
+
         shader_init();
 
-        quad_vao.bind();
-        opengl::vertex_array::set_layout<glm::vec2>();
+        cube_vao.bind();
+        opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
 
-        for (uint32_t y = 0; y < grid_dim.y; ++y) {
-            for (uint32_t x = 0; x < grid_dim.x; ++x) {
-                auto &tile = tiles[x + y * grid_dim.x];
-                float fx = 3.14f / grid_dim.x * x;
-                float fy = 3.14f / grid_dim.y * y;
-                std::uint8_t v1 = std::uint8_t(sin(fx) * 300 + sin(fy + cos(fx * 4) * 0.2) * 300);
-                tile = {v1, 0, 0, 255};
+        for (uint32_t z = 0; z < grid_dim.z; ++z) {
+            for (uint32_t y = 0; y < grid_dim.y; ++y) {
+                for (uint32_t x = 0; x < grid_dim.x; ++x) {
+                    auto &tile = tiles[x + y * grid_dim.x];
+                    std::uint8_t val = ((sin(0.04 * x + 0.038 * z) + 1) * 5 > y) * 200;
+                    tile = {val, val, val, 255};
+                }
             }
         }
 
         tiles_tex.bind();
         tiles_tex.regenerate({
             .data = tiles.data(),
-            .dim = {grid_dim.x, grid_dim.y},
+            .dim = {grid_dim.x, grid_dim.y, grid_dim.z},
             .gl_format = GL_R32UI,
             .data_format = GL_RED_INTEGER,
             .data_type = GL_UNSIGNED_INT,
-            .wrap = {.s = GL_REPEAT, .t = GL_REPEAT},
+            .wrap = {.s = GL_REPEAT, .t = GL_REPEAT, .r = GL_REPEAT},
             .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
+            .border_color = {0, 0, 0, 0},
         });
     }
 
@@ -182,20 +210,17 @@ class voxel_game : public coel::application {
         player.update(elapsed);
 
         tile_shader.bind();
-        vec2 sm = screen_to_world(mouse_pos);
-        opengl::shader_program::send(u_player_pos, player.pos);
-        opengl::shader_program::send(u_mouse_pos, sm);
-
-        vec2 ray_origin = -player.pos, ray_pos = {0, 0}, ray_nrm = {0, 0};
-        int ray_hit = (int)raycast(ray_origin, ray_pos, ray_nrm, sm - ray_origin);
-
-        opengl::shader_program::send(u_ray_pos, ray_pos);
-        opengl::shader_program::send(u_ray_nrm, ray_nrm);
-        opengl::shader_program::send(u_ray_hit, ray_hit);
+        opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+        opengl::shader_program::send(u_cam_pos, player.cam.pos);
     }
 
     void on_draw() {
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         tile_shader.bind();
         opengl::shader_program::send(u_tilemap_tex, 0);
@@ -203,12 +228,14 @@ class voxel_game : public coel::application {
         tilemap_tex.bind(0);
         tiles_tex.bind(1);
 
-        quad_vao.bind();
-        glDrawArrays(GL_QUADS, 0, 4);
+        cube_vao.bind();
+        glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
     void on_key(const coel::key_event &e) {
-        player.key_press(e);
+        if (!is_paused) {
+            player.key_press(e);
+        }
         if (e.action == GLFW_PRESS) {
             switch (e.key) {
             case GLFW_KEY_R:
@@ -221,18 +248,25 @@ class voxel_game : public coel::application {
         }
     }
 
-    void on_resize() {
-        tile_shader.bind();
-        opengl::shader_program::send(u_aspect, 1.0f * frame_dim.x / frame_dim.y);
+    void on_mouse_move() {
+        if (!is_paused) {
+            const auto screen_center = glm::vec2(frame_dim) * 0.5f;
+            player.move_mouse(mouse_pos - screen_center);
+
+            // set_mouse_pos(screen_center);
+            mouse_pos = screen_center;
+            glfwSetCursorPos(glfw.window_ptr, mouse_pos.x, mouse_pos.y);
+        }
     }
 
-    void on_mouse_scroll(const glm::dvec2 offset) {
-        zoom_scale += (float)offset.y * zoom_scale * 0.1f;
-        if (zoom_scale < 0.001f)
-            zoom_scale = 0.001f;
+    void on_resize() {
+        player.resize_cam(frame_dim);
         tile_shader.bind();
-        opengl::shader_program::send(u_scale, zoom_scale);
+        opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
     }
+
+    void on_pause() { set_mouse_capture(false); }
+    void on_resume() { set_mouse_capture(true); }
 };
 
 int main() {
