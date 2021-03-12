@@ -141,15 +141,13 @@ class game_app {
         scene.init();
         scene_frame_vao.bind();
         scene_frame_quad_vbo.bind();
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, reinterpret_cast<const void *>(0));
+        opengl::vertex_array::set_layout<glm::vec2>();
         u_scene_frame_gamma = scene_frame_shader.find_uniform("u_scene_frame_gamma");
         u_scene_frame_exposure = scene_frame_shader.find_uniform("u_scene_frame_exposure");
         u_scene_frame_tex = scene_frame_shader.find_uniform("u_scene_frame_tex");
-        glUniform1i(u_scene_frame_tex.location, 0);
         scene_frame.bind();
-        scene_frame.attach(scene_frame_tex, GL_COLOR_ATTACHMENT0);
-        scene_frame.attach(scene_frame_depth_rbo, GL_DEPTH_STENCIL_ATTACHMENT);
+        opengl::framebuffer::attach(scene_frame_tex, GL_COLOR_ATTACHMENT0);
+        opengl::framebuffer::attach(scene_frame_depth_rbo, GL_DEPTH_STENCIL_ATTACHMENT);
         unsigned int attachment = GL_COLOR_ATTACHMENT0;
         glDrawBuffers(1, &attachment);
         scene_frame.unbind();
@@ -385,7 +383,7 @@ class game_app {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         scene_frame_shader.bind();
         scene_frame_tex.bind(0);
-        glUniform1i(u_scene_frame_tex.location, 0);
+        opengl::shader_program::send(u_scene_frame_tex, 0);
         scene_frame_vao.bind();
         glDrawArrays(GL_QUADS, 0, 4);
         if (is_paused)
