@@ -1,10 +1,11 @@
+#include <coel/application.hpp>
 #include <coel/graphics/camera.hpp>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 struct player3d {
-    graphics::camera3d cam;
+    graphics::camera3d cam{.pos = {0, 2, 4}};
 
     // clang-format off
     bool move_foreward : 1 = false,
@@ -14,14 +15,9 @@ struct player3d {
         move_up : 1 = false,
         move_down : 1 = false;
     // clang-format on
+    float move_speed = 32.0f;
 
-    void init() {
-        cam.pos.z = 5;
-        cam.pos.y = 2;
-        cam.move_speed = 10;
-    }
-
-    void resize_cam(glm::ivec2 frame_dim) {
+    void resize_cam(glm::uvec2 frame_dim) {
         cam.aspect = static_cast<float>(frame_dim.x) / frame_dim.y;
         cam.update_proj();
     }
@@ -32,10 +28,10 @@ struct player3d {
         cam.update_rot();
     }
 
-    void key_press(int button, int, int action, int) {
-        switch (action) {
+    void key_press(const coel::key_event &e) {
+        switch (e.action) {
         case GLFW_PRESS:
-            switch (button) {
+            switch (e.key) {
             case GLFW_KEY_W: move_foreward = true; break;
             case GLFW_KEY_S: move_backward = true; break;
             case GLFW_KEY_A: move_left = true; break;
@@ -46,7 +42,7 @@ struct player3d {
             }
             break;
         case GLFW_RELEASE:
-            switch (button) {
+            switch (e.key) {
             case GLFW_KEY_W: move_foreward = false; break;
             case GLFW_KEY_S: move_backward = false; break;
             case GLFW_KEY_A: move_left = false; break;
@@ -61,17 +57,17 @@ struct player3d {
 
     void update(double elapsed) {
         if (move_foreward)
-            cam.pos -= cam.move_speed * cam.look * (float)elapsed;
+            cam.pos -= move_speed * cam.look * (float)elapsed;
         if (move_backward)
-            cam.pos += cam.move_speed * cam.look * (float)elapsed;
+            cam.pos += move_speed * cam.look * (float)elapsed;
         if (move_left)
-            cam.pos += cam.move_speed * cam.look_bi * (float)elapsed;
+            cam.pos += move_speed * cam.look_bi * (float)elapsed;
         if (move_right)
-            cam.pos -= cam.move_speed * cam.look_bi * (float)elapsed;
+            cam.pos -= move_speed * cam.look_bi * (float)elapsed;
         if (move_up)
-            cam.pos.y += cam.move_speed * (float)elapsed;
+            cam.pos.y += move_speed * (float)elapsed;
         if (move_down)
-            cam.pos.y -= cam.move_speed * (float)elapsed;
+            cam.pos.y -= move_speed * (float)elapsed;
 
         cam.update_view();
     }

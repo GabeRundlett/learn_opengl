@@ -67,7 +67,7 @@ class voxel_game : public coel::application {
         opengl::vertex_array::set_layout<glm::vec2>();
     }
 
-    void on_update(double elapsed) {
+    void on_update(coel::duration elapsed) {
         player.update(elapsed);
 
         tile_shader.bind();

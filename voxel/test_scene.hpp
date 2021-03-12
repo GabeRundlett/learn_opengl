@@ -1,6 +1,6 @@
 #pragma once
 
-#include <voxel_game/player.hpp>
+#include "player.hpp"
 
 struct test_scene {
     player3d player;
@@ -73,7 +73,7 @@ struct test_scene {
         u_voxel_tex,
         u_material_index;
 
-    glm::uvec3 lattice_dim = {1, 1, 1};
+    glm::uvec3 lattice_dim = {128, 128, 128};
     std::vector<glm::u8vec4> voxels = std::vector<glm::u8vec4>(lattice_dim.x * lattice_dim.y * lattice_dim.z);
     opengl::texture3d<glm::u8vec4> voxel_tex = opengl::texture3d<glm::u8vec4>({
         .data = nullptr,
@@ -89,13 +89,7 @@ struct test_scene {
     void init() {
         cube_vao.bind();
         cube_vbo.bind();
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(0));
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 8, reinterpret_cast<const void *>(6 * sizeof(float)));
-        cube_vao.unbind();
+        opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
 
         u_cam_pos = shader.find_uniform("u_cam_pos");
         u_cube_pos = shader.find_uniform("u_cube_pos");
@@ -107,7 +101,8 @@ struct test_scene {
         u_material_index = shader.find_uniform("u_material_index");
         cube_modl_mat = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 0, 0));
         light_modl_mat = glm::scale(glm::translate(glm::identity<glm::mat4>(), glm::vec3(1.2, 2, 3)), glm::vec3(0.2, 0.2, 0.2));
-        glUniform1i(u_voxel_tex.location, 0);
+        shader.bind();
+        opengl::shader_program::send(u_voxel_tex, 0);
 
         for (uint32_t z = 0; z < lattice_dim.z; ++z) {
             for (uint32_t y = 0; y < lattice_dim.y; ++y) {
@@ -133,33 +128,26 @@ struct test_scene {
     void resize(glm::ivec2 size) {
         player.resize_cam(size);
         shader.bind();
-        glUniformMatrix4fv(u_proj_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.proj_mat));
+        opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
     }
 
     void on_update(double elapsed) {
         player.update(elapsed);
         shader.bind();
-        glUniformMatrix4fv(u_view_mat.location, 1, false, reinterpret_cast<float *>(&player.cam.view_mat));
-        glUniform3fv(u_cam_pos.location, 1, reinterpret_cast<float *>(&player.cam.pos));
+        opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+        opengl::shader_program::send(u_cam_pos, player.cam.pos);
     }
 
     void draw_cube(glm::vec3 pos, glm::vec3 size, float) {
         glm::mat4 modl_mat = glm::scale(glm::translate(glm::mat4(1), pos), size);
-        glUniformMatrix4fv(u_modl_mat.location, 1, false, reinterpret_cast<float *>(&modl_mat));
-        glUniform3fv(u_cube_pos.location, 1, reinterpret_cast<float *>(&pos));
-        glUniform3fv(u_cube_dim.location, 1, reinterpret_cast<float *>(&size));
-        glUniform1i(u_material_index.location, 0);
-        glUniform1i(u_voxel_tex.location, 0);
+        opengl::shader_program::send(u_modl_mat, modl_mat);
+        opengl::shader_program::send(u_cube_pos, pos);
+        opengl::shader_program::send(u_cube_dim, size);
+        opengl::shader_program::send(u_material_index, 0);
+        opengl::shader_program::send(u_voxel_tex, 0);
         voxel_tex.bind(0);
         cube_vao.bind();
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        // for (auto &f : voxels)
-        //     f = {0, 0, 0, 0};
-        // glGetTexImage(GL_TEXTURE_3D, 0, GL_RGBA, GL_FLOAT, voxels.data());
-        // int i = 0;
-        // for (auto &f : voxels)
-        //     std::cout << f.r << " " << f.g << " " << f.b << " " << f.a << (i++ % 16 != 15 ? ", " : "\n");
-        // std::cin.get();
     }
 
     void draw() {
@@ -173,10 +161,9 @@ struct test_scene {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         shader.bind();
-        draw_cube({0, 0, 0}, glm::vec3(lattice_dim) * 0.25f, 1);
+        draw_cube({0, 0, 0}, glm::vec3(lattice_dim), 1);
 
-        // glUniformMatrix4fv(u_modl_mat.location, 1, false, reinterpret_cast<float *>(&light_modl_mat));
-        // glUniform1i(u_material_index.location, 1);
+        // opengl::shader_program::send(u_material_index, 0);
         // cube_vao.bind();
         // glDrawArrays(GL_TRIANGLES, 0, 36);
     }

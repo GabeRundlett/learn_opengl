@@ -36,14 +36,14 @@ class player2d {
         }
     }
 
-    void update(double elapsed) {
+    void update(coel::duration elapsed) {
         if (move_left)
-            pos.x += move_speed * (float)elapsed;
+            pos.x += move_speed * (float)elapsed.count();
         if (move_right)
-            pos.x -= move_speed * (float)elapsed;
+            pos.x -= move_speed * (float)elapsed.count();
         if (move_up)
-            pos.y += move_speed * (float)elapsed;
+            pos.y += move_speed * (float)elapsed.count();
         if (move_down)
-            pos.y -= move_speed * (float)elapsed;
+            pos.y -= move_speed * (float)elapsed.count();
     }
 };
