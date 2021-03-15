@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <glm/glm.hpp>
 
 static inline int32_t fastfloor(float fp) {
     int32_t i = static_cast<int32_t>(fp);
@@ -330,3 +331,7 @@ float fractal_noise(glm::vec3 pos, fractal_noise_config config) {
     }
     return value;
 };
+
+static inline constexpr glm::vec3 floor(glm::vec3 v) {
+    return glm::vec3(floor(v.x), floor(v.y), floor(v.z));
+}

@@ -217,6 +217,7 @@ namespace opengl {
         }
 
         static void send(const shader_uniform &uniform, int value) { glUniform1i(uniform.location, value); }
+        static void send(const shader_uniform &uniform, unsigned int value) { glUniform1ui(uniform.location, value); }
         static void send(const shader_uniform &uniform, float value) { glUniform1f(uniform.location, value); }
         static void send(const shader_uniform &uniform, const glm::vec2 &v) {
             glUniform2fv(uniform.location, 1, reinterpret_cast<const float *>(&v));

@@ -112,12 +112,12 @@ namespace coel {
 
         glfw_app glfw = glfw_app(frame_dim, title);
 
-        std::chrono::steady_clock::time_point now;
+        clock::time_point now;
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
         glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
 
         opengl::renderer::ui_batch ui_batch;
-        opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("voxel/assets/textures/RobotoFontAtlas.png");
+        opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("coel/assets/RobotoFontAtlas.png");
 
         // debug info
         std::chrono::steady_clock::time_point debug_frame_begin;

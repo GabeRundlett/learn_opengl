@@ -1,455 +1,254 @@
 #pragma once
 
-#include <coel/opengl/core.hpp>
 #include "noise.hpp"
 #include <fmt/core.h>
 
 struct chunk3d {
-    static inline constexpr glm::uvec3 size = {32, 32, 32};
-    static inline constexpr auto
-        max_vcount = size.x * size.y * size.z * 4 * 6,
-        max_icount = size.x * size.y * size.z * 6 * 6;
-
-    glm::ivec3 index;
-    glm::vec3 pos;
-    std::array<std::array<std::array<std::uint8_t, size.x>, size.y>, size.z> blocks;
-
     struct vertex {
         glm::vec3 pos, nrm;
         glm::vec2 tex;
     };
+    static inline const std::array cube_vertices = {
+        // clang-format off
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  0.0f, -1.0f}, .tex{0.0f, 1.0f}},
+
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f,  0.0f,  1.0f}, .tex{0.0f, 0.0f}},
+        
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{-1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 1.0f,  0.0f,  0.0f}, .tex{1.0f, 0.0f}},
+
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f, -0.5f,  0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        vertex{.pos{-0.5f, -0.5f, -0.5f}, .nrm{ 0.0f, -1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{ 0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 1.0f}},
+        vertex{.pos{ 0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{1.0f, 0.0f}},
+        vertex{.pos{-0.5f,  0.5f, -0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 1.0f}},
+        vertex{.pos{-0.5f,  0.5f,  0.5f}, .nrm{ 0.0f,  1.0f,  0.0f}, .tex{0.0f, 0.0f}},
+        // clang-format on
+    };
 
     opengl::vertex_array vao;
-    opengl::vertex_buffer_dynamic vbo = opengl::vertex_buffer_dynamic(nullptr, sizeof(vertex) * max_vcount);
-    opengl::index_buffer_dynamic ibo = opengl::index_buffer_dynamic(nullptr, sizeof(unsigned int) * max_icount);
-    unsigned int vcount, icount;
+    opengl::vertex_buffer vbo = opengl::vertex_buffer(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0]));
 
-    vertex *vbuffer_ptr;
-    unsigned int *ibuffer_ptr;
+    static inline constexpr glm::uvec3 dim = {128, 128, 128};
+    std::vector<std::uint32_t> tiles = std::vector<std::uint32_t>(dim.x * dim.y * dim.z);
+    opengl::texture3d<std::uint32_t> tiles_tex = opengl::texture3d<std::uint32_t>({
+        .data{
+            .dim = {dim.x, dim.y, dim.z},
+            .format = GL_RED_INTEGER,
+            .type = GL_UNSIGNED_INT,
+        },
+        .gl_format = GL_R32UI,
+        .wrap = {.s = GL_CLAMP_TO_BORDER, .t = GL_CLAMP_TO_BORDER, .r = GL_CLAMP_TO_BORDER},
+        .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
+        .border_color = {0, 0, 0, 0},
+    });
 
-    struct block_texcoord_config {
-        glm::vec2 nz, pz;
-        glm::vec2 ny, py;
-        glm::vec2 nx, px;
-    };
+    opengl::texture2d<> tilemap_tex = opengl::texture2d<>({
+        .filepath = "voxel_game/assets/textures/tilemap.png",
+        .gl_format = GL_RGBA,
+        .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
+    });
 
-    struct block_facevis_config {
-        std::uint8_t nz : 1, pz : 1;
-        std::uint8_t ny : 1, py : 1;
-        std::uint8_t nx : 1, px : 1;
-    };
-
-    struct chunk_neighbors {
-        chunk *nz = nullptr, *pz = nullptr;
-        chunk *ny = nullptr, *py = nullptr;
-        chunk *nx = nullptr, *px = nullptr;
-    };
-
-    static inline constexpr std::array<block_texcoord_config, 10> block_texcoords = {
-        // 0 debug
-        block_texcoord_config{
-            .nz = {3, 2},
-            .pz = {3, 2},
-            .ny = {3, 2},
-            .py = {3, 2},
-            .nx = {3, 2},
-            .px = {3, 2},
-        },
-        // 1 grass
-        block_texcoord_config{
-            .nz = {1, 0},
-            .pz = {1, 0},
-            .ny = {2, 0},
-            .py = {0, 0},
-            .nx = {1, 0},
-            .px = {1, 0},
-        },
-        // 2 dirt
-        block_texcoord_config{
-            .nz = {2, 0},
-            .pz = {2, 0},
-            .ny = {2, 0},
-            .py = {2, 0},
-            .nx = {2, 0},
-            .px = {2, 0},
-        },
-        // 3 sand
-        block_texcoord_config{
-            .nz = {3, 0},
-            .pz = {3, 0},
-            .ny = {3, 0},
-            .py = {3, 0},
-            .nx = {3, 0},
-            .px = {3, 0},
-        },
-        // 4 cobbled stone
-        block_texcoord_config{
-            .nz = {0, 1},
-            .pz = {0, 1},
-            .ny = {0, 1},
-            .py = {0, 1},
-            .nx = {0, 1},
-            .px = {0, 1},
-        },
-        // 5 cracked stone
-        block_texcoord_config{
-            .nz = {1, 1},
-            .pz = {1, 1},
-            .ny = {1, 1},
-            .py = {1, 1},
-            .nx = {1, 1},
-            .px = {1, 1},
-        },
-        // 6 smooth stone
-        block_texcoord_config{
-            .nz = {2, 1},
-            .pz = {2, 1},
-            .ny = {2, 1},
-            .py = {2, 1},
-            .nx = {2, 1},
-            .px = {2, 1},
-        },
-        // 7 gravel
-        block_texcoord_config{
-            .nz = {3, 1},
-            .pz = {3, 1},
-            .ny = {3, 1},
-            .py = {3, 1},
-            .nx = {3, 1},
-            .px = {3, 1},
-        },
-        // 8 log
-        block_texcoord_config{
-            .nz = {0, 2},
-            .pz = {0, 2},
-            .ny = {1, 2},
-            .py = {1, 2},
-            .nx = {0, 2},
-            .px = {0, 2},
-        },
-        // 9 leaves
-        block_texcoord_config{
-            .nz = {2, 2},
-            .pz = {2, 2},
-            .ny = {2, 2},
-            .py = {2, 2},
-            .nx = {2, 2},
-            .px = {2, 2},
-        },
-    };
-    static inline constexpr std::array<bool, 10> block_not_occlusive = {
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-    };
-
-    chunk(glm::ivec3 index) : index(index), pos(glm::vec3(index) * glm::vec3(size)) {
+    chunk3d() {
         vao.bind();
-        opengl::set_layout<glm::vec3, glm::vec3, glm::vec2>();
+        opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
 
-        constexpr auto fractal_noise = [](glm::vec3 pos, float persistance, float amplitude, float lacunarity, float scale) {
-            float value = 0.0f;
-            for (int i = 0; i < 4; ++i) {
-                value += noise(pos.x * scale, pos.y * scale, pos.z * scale) * amplitude;
-                amplitude *= persistance;
-                scale *= lacunarity;
-            }
-            return value;
+        fractal_noise_config noise_conf{
+            .amplitude = 1.0f,
+            .persistance = 0.5f,
+            .scale = 0.01f,
+            .lacunarity = 2.0f,
+            .octaves = 4,
         };
-
-        for (int zi = 0; zi < blocks.size(); ++zi) {
-            auto &plane = blocks[zi];
-            for (int yi = 0; yi < plane.size(); ++yi) {
-                auto &row = plane[yi];
-                for (int xi = 0; xi < row.size(); ++xi) {
-                    glm::vec3 p = glm::vec3(xi, yi, zi) + pos;
-                    auto &block_id = row[xi];
-                    block_id = 0;
-                    float height = fractal_noise({p.x, 0, p.z}, 0.5f, 20.0f, 2.0f, 1.0f / 128);
-                    if (p.y < height) {
-                        int y = (int)p.y, h = (int)height + (height > 0);
-                        float block_noise = fractal_noise(p + glm::vec3(100, 100, 100), 0.5f, 1.0f, 2.0f, 1.0f / 96);
-                        if (block_noise < 0.7) {
-                            if (h - y == 1) {
-                                block_id = 1;
-                            } else if (h - y < 5) {
-                                block_id = 2;
-                            } else
-                                block_id = 6;
-                        }
-                    }
+        for (std::uint32_t z = 0; z < dim.z; ++z) {
+            for (std::uint32_t y = 0; y < dim.y; ++y) {
+                for (std::uint32_t x = 0; x < dim.x; ++x) {
+                    auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
+                    float y_scale = 1.0f / (y + 1);
+                    float density = fractal_noise(glm::vec3(x, y, z), noise_conf) * 1000 * y_scale * y_scale;
+                    std::uint8_t val = 0;
+                    if (density > 0.2)
+                        val = 1;
+                    else if (density > 0.15)
+                        val = 2;
+                    else if (density > 0.125)
+                        val = 3;
+                    else if (density > 0.05)
+                        val = 4;
+                    if (y == 0)
+                        val = 1;
+                    tile = val;
                 }
             }
         }
+
+        update();
     }
 
-    void add_face_x(glm::vec3 p0, glm::vec3 p1, glm::vec3 nrm, glm::vec2 t0, glm::vec2 t1, bool flip) {
-        *reinterpret_cast<std::array<vertex, 4> *>(vbuffer_ptr) = {
-            vertex{.pos{p0.x, p0.y, p0.z}, .nrm = nrm, .tex{t0.x, t1.y}},
-            vertex{.pos{p0.x, p1.y, p0.z}, .nrm = nrm, .tex{t0.x, t0.y}},
-            vertex{.pos{p0.x, p0.y, p1.z}, .nrm = nrm, .tex{t1.x, t1.y}},
-            vertex{.pos{p0.x, p1.y, p1.z}, .nrm = nrm, .tex{t1.x, t0.y}},
-        };
-        *reinterpret_cast<std::array<unsigned int, 6> *>(ibuffer_ptr) = {
-            // clang-format off
-            0 + vcount, 1 + vcount + flip, 2 + vcount - flip,
-            1 + vcount, 3 + vcount - flip, 2 + vcount + flip,
-            // clang-format on
-        };
-        vcount += 4, vbuffer_ptr += 4;
-        icount += 6, ibuffer_ptr += 6;
-    }
-    void add_face_y(glm::vec3 p0, glm::vec3 p1, glm::vec3 nrm, glm::vec2 t0, glm::vec2 t1, bool flip) {
-        *reinterpret_cast<std::array<vertex, 4> *>(vbuffer_ptr) = {
-            vertex{.pos{p0.x, p0.y, p0.z}, .nrm = nrm, .tex{t0.x, t1.y}},
-            vertex{.pos{p0.x, p0.y, p1.z}, .nrm = nrm, .tex{t1.x, t1.y}},
-            vertex{.pos{p1.x, p0.y, p0.z}, .nrm = nrm, .tex{t0.x, t0.y}},
-            vertex{.pos{p1.x, p0.y, p1.z}, .nrm = nrm, .tex{t1.x, t0.y}},
-        };
-        *reinterpret_cast<std::array<unsigned int, 6> *>(ibuffer_ptr) = {
-            // clang-format off
-            0 + vcount, 1 + vcount + flip, 2 + vcount - flip,
-            1 + vcount, 3 + vcount - flip, 2 + vcount + flip,
-            // clang-format on
-        };
-        vcount += 4, vbuffer_ptr += 4;
-        icount += 6, ibuffer_ptr += 6;
-    }
-    void add_face_z(glm::vec3 p0, glm::vec3 p1, glm::vec3 nrm, glm::vec2 t0, glm::vec2 t1, bool flip) {
-        *reinterpret_cast<std::array<vertex, 4> *>(vbuffer_ptr) = {
-            vertex{.pos{p0.x, p0.y, p0.z}, .nrm = nrm, .tex{t0.x, t1.y}},
-            vertex{.pos{p1.x, p0.y, p0.z}, .nrm = nrm, .tex{t1.x, t1.y}},
-            vertex{.pos{p0.x, p1.y, p0.z}, .nrm = nrm, .tex{t0.x, t0.y}},
-            vertex{.pos{p1.x, p1.y, p0.z}, .nrm = nrm, .tex{t1.x, t0.y}},
-        };
-        *reinterpret_cast<std::array<unsigned int, 6> *>(ibuffer_ptr) = {
-            // clang-format off
-            0 + vcount, 1 + vcount + flip, 2 + vcount - flip,
-            1 + vcount, 3 + vcount - flip, 2 + vcount + flip,
-            // clang-format on
-        };
-        vcount += 4, vbuffer_ptr += 4;
-        icount += 6, ibuffer_ptr += 6;
+    struct hit_information {
+        glm::vec3 pos, nrm;
+        int tile_id;
+    };
+    struct raycast_information {
+        bool hit;
+        int steps;
+        hit_information hit_info;
+    };
+
+    auto &get_tile(glm::vec3 fp) {
+        glm::ivec3 p = fp + glm::vec3(dim) * 0.5f;
+        if (p.x < 0)
+            p.x = 0;
+        else if (p.x > int(dim.x - 1))
+            p.x = dim.x - 1;
+        if (p.y < 0)
+            p.y = 0;
+        else if (p.y > int(dim.y - 1))
+            p.y = dim.y - 1;
+        if (p.z < 0)
+            p.z = 0;
+        else if (p.z > int(dim.z - 1))
+            p.z = dim.z - 1;
+        return tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
     }
 
-    void add_block(glm::vec3 p, int block_id, const block_facevis_config &vis) {
-        if (vis.nz)
-            add_face_z(p + glm::vec3{0.0f, 0.0f, 0.0f}, p + glm::vec3{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, block_texcoords[block_id].nz + glm::vec2{1.0f, 0.0f}, block_texcoords[block_id].nz + glm::vec2{0.0f, 1.0f}, true); // back
-        if (vis.pz)
-            add_face_z(p + glm::vec3{0.0f, 0.0f, 1.0f}, p + glm::vec3{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, block_texcoords[block_id].pz + glm::vec2{0.0f, 0.0f}, block_texcoords[block_id].pz + glm::vec2{1.0f, 1.0f}, false); // front
-        if (vis.ny)
-            add_face_y(p + glm::vec3{0.0f, 0.0f, 0.0f}, p + glm::vec3{1.0f, 0.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, block_texcoords[block_id].ny + glm::vec2{0.0f, 0.0f}, block_texcoords[block_id].ny + glm::vec2{1.0f, 1.0f}, true); // bottom
-        if (vis.py)
-            add_face_y(p + glm::vec3{0.0f, 1.0f, 0.0f}, p + glm::vec3{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, block_texcoords[block_id].py + glm::vec2{0.0f, 0.0f}, block_texcoords[block_id].py + glm::vec2{1.0f, 1.0f}, false); // top
-        if (vis.nx)
-            add_face_x(p + glm::vec3{0.0f, 0.0f, 0.0f}, p + glm::vec3{0.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, block_texcoords[block_id].nx + glm::vec2{0.0f, 0.0f}, block_texcoords[block_id].nx + glm::vec2{1.0f, 1.0f}, true); // left
-        if (vis.px)
-            add_face_x(p + glm::vec3{1.0f, 0.0f, 0.0f}, p + glm::vec3{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, block_texcoords[block_id].px + glm::vec2{1.0f, 0.0f}, block_texcoords[block_id].px + glm::vec2{0.0f, 1.0f}, false); // right
-    }
+    void raycast(glm::vec3 ray_origin, glm::vec3 ray_dir, raycast_information &i) {
+        using namespace glm;
 
-    void begin_build_buffer() {
-        vbuffer_ptr = vbo.map<vertex>();
-        ibuffer_ptr = ibo.map<unsigned int>();
-        vcount = 0, icount = 0;
-    }
-    void build_buffer(const chunk_neighbors &neighbors) {
-        for (int zi = 0; zi < blocks.size(); ++zi) {
-            auto &plane = blocks[zi];
-            for (int yi = 0; yi < plane.size(); ++yi) {
-                auto &row = plane[yi];
-                for (int xi = 0; xi < row.size(); ++xi) {
-                    auto &block_id = row[xi];
-                    if (block_id) {
-                        block_facevis_config vis{0, 0, 0, 0, 0, 0};
-                        if (zi != blocks.size() - 1)
-                            vis.pz = block_not_occlusive[blocks[zi + 1][yi][xi]];
-                        else if (neighbors.pz)
-                            vis.pz = block_not_occlusive[neighbors.pz->blocks[0][yi][xi]];
-                        if (zi != 0)
-                            vis.nz = block_not_occlusive[blocks[zi - 1][yi][xi]];
-                        else if (neighbors.nz)
-                            vis.nz = block_not_occlusive[neighbors.nz->blocks[size.z - 1][yi][xi]];
+        const int MAX_ITER = 1000;
+        const float EPSILON = 0.001f;
+        const vec3 space_scale = vec3(1);
 
-                        if (yi != blocks.size() - 1)
-                            vis.py = block_not_occlusive[blocks[zi][yi + 1][xi]];
-                        else if (neighbors.py)
-                            vis.py = block_not_occlusive[neighbors.py->blocks[zi][0][xi]];
-                        if (yi != 0)
-                            vis.ny = block_not_occlusive[blocks[zi][yi - 1][xi]];
-                        else if (neighbors.ny)
-                            vis.ny = block_not_occlusive[neighbors.ny->blocks[zi][size.y - 1][xi]];
-
-                        if (xi != blocks.size() - 1)
-                            vis.px = block_not_occlusive[blocks[zi][yi][xi + 1]];
-                        else if (neighbors.px)
-                            vis.px = block_not_occlusive[neighbors.px->blocks[zi][yi][0]];
-                        if (xi != 0)
-                            vis.nx = block_not_occlusive[blocks[zi][yi][xi - 1]];
-                        else if (neighbors.nx)
-                            vis.nx = block_not_occlusive[neighbors.nx->blocks[zi][yi][size.x - 1]];
-                        add_block(pos + glm::vec3(xi, yi, zi), block_id, vis);
-                    }
+        using namespace glm;
+        i.hit = false;
+        i.hit_info.pos = ray_origin;
+        i.hit_info.tile_id = get_tile(i.hit_info.pos);
+        if (i.hit_info.tile_id != 0) {
+            i.hit_info.nrm = vec3(0, 0, 0);
+            i.hit = true;
+            return;
+        }
+        vec3 ray_p = floor(ray_origin / space_scale) * space_scale;
+        vec3 ray_d = ray_p - ray_origin;
+        vec3 ray_step = -space_scale;
+        if (ray_dir.x > 0)
+            ray_d.x += space_scale.x, ray_step.x *= -1;
+        if (ray_dir.y > 0)
+            ray_d.y += space_scale.y, ray_step.y *= -1;
+        if (ray_dir.z > 0)
+            ray_d.z += space_scale.z, ray_step.z *= -1;
+        i.steps = 0;
+        float slope_xy = ray_dir.y / ray_dir.x, slope_xz = ray_dir.z / ray_dir.x;
+        float slope_yx = ray_dir.x / ray_dir.y, slope_yz = ray_dir.z / ray_dir.y;
+        float slope_zx = ray_dir.x / ray_dir.z, slope_zy = ray_dir.y / ray_dir.z;
+        if (ray_dir.x == 0 || ray_dir.y == 0 || ray_dir.z == 0)
+            return;
+        vec3 to_travel_x = vec3(ray_d.x, slope_xy * ray_d.x, slope_xz * ray_d.x);
+        vec3 to_travel_y = vec3(slope_yx * ray_d.y, ray_d.y, slope_yz * ray_d.y);
+        vec3 to_travel_z = vec3(slope_zx * ray_d.z, slope_zy * ray_d.z, ray_d.z);
+        while (i.steps < MAX_ITER) {
+            while (i.steps < MAX_ITER &&
+                   to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x &&
+                   to_travel_x.x * ray_step.x < to_travel_z.x * ray_step.x) {
+                i.hit_info.pos += to_travel_x;
+                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
+                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
+                //     return;
+                i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(ray_step.x * EPSILON, 0, 0));
+                if (i.hit_info.tile_id != 0) {
+                    i.hit_info.nrm = vec3(sign(-ray_step.x), 0, 0);
+                    i.hit = true;
+                    return;
                 }
+                to_travel_y -= to_travel_x;
+                to_travel_z -= to_travel_x;
+                to_travel_x = vec3(
+                    ray_step.x,
+                    slope_xy * ray_step.x,
+                    slope_xz * ray_step.x);
+                ++i.steps;
             }
+            while (i.steps < MAX_ITER &&
+                   to_travel_y.y * ray_step.y < to_travel_x.y * ray_step.y &&
+                   to_travel_y.y * ray_step.y < to_travel_z.y * ray_step.y) {
+                i.hit_info.pos += to_travel_y;
+                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
+                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
+                //     return;
+                i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(0, ray_step.y * EPSILON, 0));
+                if (i.hit_info.tile_id != 0) {
+                    i.hit_info.nrm = vec3(0, sign(-ray_step.y), 0);
+                    i.hit = true;
+                    return;
+                }
+                to_travel_x -= to_travel_y;
+                to_travel_z -= to_travel_y;
+                to_travel_y = vec3(
+                    slope_yx * ray_step.y,
+                    ray_step.y,
+                    slope_yz * ray_step.y);
+                ++i.steps;
+            }
+            while (i.steps < MAX_ITER &&
+                   to_travel_z.z * ray_step.z < to_travel_y.z * ray_step.z &&
+                   to_travel_z.z * ray_step.z < to_travel_x.z * ray_step.z) {
+                i.hit_info.pos += to_travel_z;
+                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
+                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
+                //     return;
+                i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(0, 0, ray_step.z * EPSILON));
+                if (i.hit_info.tile_id != 0) {
+                    i.hit_info.nrm = vec3(0, 0, sign(-ray_step.z));
+                    i.hit = true;
+                    return;
+                }
+                to_travel_x -= to_travel_z;
+                to_travel_y -= to_travel_z;
+                to_travel_z = vec3(
+                    slope_zx * ray_step.z,
+                    slope_zy * ray_step.z,
+                    ray_step.z);
+                ++i.steps;
+            }
+            ++i.steps;
         }
     }
-    void end_build_buffer() {
-        vbo.unmap();
-        ibo.unmap();
-    }
-    void regenerate_buffer(const chunk_neighbors &neighbors) {
-        begin_build_buffer();
-        build_buffer(neighbors);
-        end_build_buffer();
-    }
 
-    void draw_buffer() const {
-        vao.bind();
-        ibo.bind();
-        glDrawElements(GL_TRIANGLES, icount, GL_UNSIGNED_INT, nullptr);
-    }
-};
-
-struct chunkworld3d {
-    static inline constexpr int render_dist = 1;
-    std::vector<chunk *> chunk_lookup;
-    std::array<std::array<std::array<chunk *, render_dist * 2>, render_dist * 2>, render_dist * 2> chunks;
-
-    ~chunk_world() {
-        for (auto &chunk_ptr : chunk_lookup)
-            delete chunk_ptr;
-    }
-
-    chunk *add_chunk(glm::ivec3 index) {
-        const auto c_iter = std::find_if(chunk_lookup.begin(), chunk_lookup.end(), [=](const auto &c) {
-            return c->index == index;
+    void update() {
+        tiles_tex.bind();
+        tiles_tex.update({
+            .ptr = tiles.data(),
+            .dim = {dim.x, dim.y, dim.z},
+            .format = GL_RED_INTEGER,
+            .type = GL_UNSIGNED_INT,
         });
-        if (c_iter == chunk_lookup.end()) {
-            chunk_lookup.push_back(new chunk(index));
-            return *(chunk_lookup.end() - 1);
-        }
-        return *c_iter;
-    }
-
-    glm::ivec3 get_chunk_index(glm::ivec3 index) {
-        index.x = index.x % (render_dist * 2);
-        index.y = index.y % (render_dist * 2);
-        index.z = index.z % (render_dist * 2);
-        if (index.x < 0)
-            index.x += render_dist * 2;
-        if (index.y < 0)
-            index.y += render_dist * 2;
-        if (index.z < 0)
-            index.z += render_dist * 2;
-        return index;
-    }
-
-    chunk *get_chunk(glm::ivec3 index) {
-        index = get_chunk_index(index);
-        chunk *result = chunks[index.z][index.y][index.x];
-        return result;
-    }
-
-    chunk::chunk_neighbors get_chunk_neighbors(glm::ivec3 index) {
-        chunk::chunk_neighbors neighbors;
-        chunk *temp_chunk_ptr = nullptr;
-        temp_chunk_ptr = get_chunk({index.x, index.y, index.z + 1});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x, index.y, index.z + 1})
-            neighbors.pz = temp_chunk_ptr;
-        temp_chunk_ptr = get_chunk({index.x, index.y, index.z - 1});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x, index.y, index.z - 1})
-            neighbors.nz = temp_chunk_ptr;
-        temp_chunk_ptr = get_chunk({index.x, index.y + 1, index.z});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x, index.y + 1, index.z})
-            neighbors.py = temp_chunk_ptr;
-        temp_chunk_ptr = get_chunk({index.x, index.y - 1, index.z});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x, index.y - 1, index.z})
-            neighbors.ny = temp_chunk_ptr;
-        temp_chunk_ptr = get_chunk({index.x + 1, index.y, index.z});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x + 1, index.y, index.z})
-            neighbors.px = temp_chunk_ptr;
-        temp_chunk_ptr = get_chunk({index.x - 1, index.y, index.z});
-        if (temp_chunk_ptr != nullptr && temp_chunk_ptr->index == glm::ivec3{index.x - 1, index.y, index.z})
-            neighbors.nx = temp_chunk_ptr;
-        return neighbors;
-    }
-
-    void init() {
-        for (int zi = 0; zi < chunks.size(); ++zi) {
-            auto &plane = chunks[zi];
-            for (int yi = 0; yi < plane.size(); ++yi) {
-                auto &row = plane[yi];
-                for (int xi = 0; xi < row.size(); ++xi) {
-                    auto &chunk_ptr = row[xi];
-                    // chunk_ptr = add_chunk({xi - render_dist, yi - render_dist, zi - render_dist});
-                    chunk_ptr = nullptr;
-                }
-            }
-        }
-        // for (int zi = 0; zi < chunks.size(); ++zi) {
-        //     auto &plane = chunks[zi];
-        //     for (int yi = 0; yi < plane.size(); ++yi) {
-        //         auto &row = plane[yi];
-        //         for (int xi = 0; xi < row.size(); ++xi) {
-        //             auto &chunk_ptr = row[xi];
-        //             auto neighbors = get_chunk_neighbors(chunk_ptr->index);
-        //             chunk_ptr->regenerate_buffer(neighbors);
-        //         }
-        //     }
-        // }
-    }
-
-    void update(glm::vec3 camera_pos) {
-        constexpr int updates_per_tick = 8;
-        int chunk_updates = 0;
-        for (int zi = 0; zi < chunks.size(); ++zi) {
-            for (int yi = 0; yi < chunks[zi].size(); ++yi) {
-                for (int xi = 0; xi < chunks[zi][yi].size(); ++xi) {
-                    glm::ivec3 current_chunk_index = glm::ivec3(xi - render_dist, yi - render_dist, zi - render_dist);
-                    // chunk *current_chunk_ptr = get_chunk(current_chunk_index);
-                    glm::ivec3 test_chunk_index = current_chunk_index + glm::ivec3(camera_pos / glm::vec3(chunk::size));
-                    chunk *test_chunk_ptr = get_chunk(test_chunk_index);
-                    if (test_chunk_ptr == nullptr || test_chunk_ptr->index != test_chunk_index) {
-                        fmt::print("adding chunk {}", (void *)test_chunk_ptr);
-                        if (test_chunk_ptr)
-                            fmt::print(" found: {} {} {}", test_chunk_ptr->index.x, test_chunk_ptr->index.y, test_chunk_ptr->index.z);
-                        fmt::print(" check: {} {} {}\n", test_chunk_index.x, test_chunk_index.y, test_chunk_index.z);
-                        auto *current_chunk_ptr = add_chunk(test_chunk_index);
-                        current_chunk_index = get_chunk_index(current_chunk_index);
-                        chunks[current_chunk_index.z][current_chunk_index.y][current_chunk_index.x] = current_chunk_ptr;
-                        auto neighbors = get_chunk_neighbors(current_chunk_index);
-                        current_chunk_ptr->regenerate_buffer(neighbors);
-                        ++chunk_updates;
-                    }
-                    if (chunk_updates >= updates_per_tick)
-                        break;
-                }
-                if (chunk_updates >= updates_per_tick)
-                    break;
-            }
-            if (chunk_updates >= updates_per_tick)
-                break;
-        }
-    }
-
-    void draw() const {
-        for (int zi = 0; zi < chunks.size(); ++zi) {
-            auto &plane = chunks[zi];
-            for (int yi = 0; yi < plane.size(); ++yi) {
-                auto &row = plane[yi];
-                for (int xi = 0; xi < row.size(); ++xi) {
-                    auto &chunk_ptr = row[xi];
-                    if (chunk_ptr)
-                        chunk_ptr->draw_buffer();
-                }
-            }
-        }
     }
 };

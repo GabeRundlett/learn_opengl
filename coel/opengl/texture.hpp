@@ -10,12 +10,16 @@ namespace opengl {
     struct texture {
         unsigned int id = (unsigned int)-1;
 
-        struct configuration {
+        struct data_configuration {
+            const data_t *ptr = nullptr;
+            dim_t offset, dim;
+            unsigned int format, type = GL_UNSIGNED_BYTE;
+        };
+
+        struct creation_configuration {
             const char *filepath = nullptr;
-            const data_t *data = nullptr;
-            dim_t dim;
-            // unsigned int width, height;
-            unsigned int gl_format, data_format, data_type = GL_UNSIGNED_BYTE;
+            data_configuration data;
+            unsigned int gl_format;
             struct wrapping {
                 unsigned int s = GL_REPEAT, t = GL_REPEAT, r = GL_REPEAT;
             } wrap;
@@ -31,8 +35,8 @@ namespace opengl {
             glGenTextures(1, &id);
             bind();
         }
-        texture(const configuration &conf) : texture() {
-            regenerate(conf);
+        texture(const creation_configuration &create_conf) : texture() {
+            recreate(create_conf);
         }
         texture(const texture &) = delete;
         texture(texture &&other) {
@@ -48,7 +52,7 @@ namespace opengl {
             return *this;
         }
 
-        void regenerate(const configuration &conf) {
+        void recreate(const creation_configuration &conf) {
             if (conf.filepath != nullptr) {
                 if constexpr (target == GL_TEXTURE_2D || target == GL_TEXTURE_2D_MULTISAMPLE) {
                     int width, height, num_channels;
@@ -69,13 +73,15 @@ namespace opengl {
                     const auto dim_x = static_cast<decltype(dim_t::x)>(width);
                     const auto dim_y = static_cast<decltype(dim_t::y)>(height);
 
-                    regenerate(configuration{
+                    recreate(creation_configuration{
                         .filepath = nullptr,
-                        .data = reinterpret_cast<decltype(configuration::data)>(data),
-                        .dim = {dim_x, dim_y},
+                        .data{
+                            .ptr = reinterpret_cast<decltype(data_configuration::ptr)>(data),
+                            .dim = {dim_x, dim_y},
+                            .format = format,
+                            .type = conf.data.type,
+                        },
                         .gl_format = conf.gl_format,
-                        .data_format = format,
-                        .data_type = conf.data_type,
                         .wrap = {conf.wrap.s, conf.wrap.t, conf.wrap.r},
                         .filter = {conf.filter.min, conf.filter.max},
                         .border_color = conf.border_color,
@@ -86,38 +92,37 @@ namespace opengl {
             } else {
                 bind();
                 if constexpr (target == GL_TEXTURE_2D_MULTISAMPLE) {
-                    glTexImage2DMultisample(target, conf.samples, conf.gl_format, conf.dim.x, conf.dim.y, false);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
-                    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
-                    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, conf.filter.max);
-                    if (conf.use_mipmap)
-                        glGenerateMipmap(target);
-                    if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER)
-                        glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
+                    glTexImage2DMultisample(target, conf.samples, conf.gl_format, conf.data.dim.x, conf.data.dim.y, false);
                 } else if constexpr (target == GL_TEXTURE_2D) {
-                    glTexImage2D(target, 0, conf.gl_format, conf.dim.x, conf.dim.y, 0, conf.data_format, conf.data_type, conf.data);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
-                    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
-                    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, conf.filter.max);
-                    if (conf.use_mipmap)
-                        glGenerateMipmap(target);
-                    if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER)
-                        glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
+                    glTexImage2D(target, 0, conf.gl_format, conf.data.dim.x, conf.data.dim.y, 0, conf.data.format, conf.data.type, conf.data.ptr);
                 } else if constexpr (target == GL_TEXTURE_3D) {
                     glEnable(GL_TEXTURE_3D);
-                    glTexImage3D(target, 0, conf.gl_format, conf.dim.x, conf.dim.y, conf.dim.z, 0, conf.data_format, conf.data_type, conf.data);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
-                    glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
+                    glTexImage3D(target, 0, conf.gl_format, conf.data.dim.x, conf.data.dim.y, conf.data.dim.z, 0, conf.data.format, conf.data.type, conf.data.ptr);
                     glTexParameteri(target, GL_TEXTURE_WRAP_R, conf.wrap.r);
-                    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
-                    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, conf.filter.max);
-                    if (conf.use_mipmap)
-                        glGenerateMipmap(target);
-                    if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER || conf.wrap.r == GL_CLAMP_TO_BORDER)
-                        glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
+                } else {
+                    static_assert("Unsupported Texture Target");
                 }
+                glTexParameteri(target, GL_TEXTURE_WRAP_S, conf.wrap.s);
+                glTexParameteri(target, GL_TEXTURE_WRAP_T, conf.wrap.t);
+                glTexParameteri(target, GL_TEXTURE_MIN_FILTER, conf.filter.min);
+                glTexParameteri(target, GL_TEXTURE_MAG_FILTER, conf.filter.max);
+                if (conf.use_mipmap)
+                    glGenerateMipmap(target);
+                if (conf.wrap.s == GL_CLAMP_TO_BORDER || conf.wrap.t == GL_CLAMP_TO_BORDER)
+                    glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, reinterpret_cast<const float *>(&conf.border_color));
+            }
+        }
+
+        void update(data_configuration conf) {
+            bind();
+            if constexpr (target == GL_TEXTURE_2D_MULTISAMPLE) {
+                static_assert("Multisampled Textures MUST be recreated");
+            } else if constexpr (target == GL_TEXTURE_2D) {
+                glTexSubImage2D(target, 0, conf.offset.x, conf.offset.y, conf.dim.x, conf.dim.y, conf.format, conf.type, conf.ptr);
+            } else if constexpr (target == GL_TEXTURE_3D) {
+                glTexSubImage3D(target, 0, conf.offset.x, conf.offset.y, conf.offset.z, conf.dim.x, conf.dim.y, conf.dim.z, conf.format, conf.type, conf.ptr);
+            } else {
+                static_assert("Unsupported Texture Target");
             }
         }
 

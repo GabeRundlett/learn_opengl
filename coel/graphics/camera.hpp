@@ -16,7 +16,7 @@ namespace graphics {
         }
 
         void update_rot() {
-            look = glm::rotateY(glm::vec3{0, 0, 1}, rot.y);
+            look = glm::rotateY(glm::rotateX(glm::vec3{0, 0, 1}, rot.x), rot.y);
             look_bi = {-look.z, look.y, look.x};
         }
 

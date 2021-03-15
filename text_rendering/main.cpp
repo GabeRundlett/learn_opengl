@@ -136,8 +136,6 @@ class game_app : public coel::application {
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
     opengl::shader_program shader = opengl::shader_program({.filepath = "text_rendering/assets/quad_vert.glsl"}, {.filepath = "text_rendering/assets/quad_frag.glsl"});
-    opengl::shader_uniform u_glyph_tex;
-    opengl::texture2d<glm::vec4> glyph_tex;
 
     game_app() : coel::application({400, 400}, "text rendering") {
         use_raw_mouse(true);
@@ -153,8 +151,6 @@ class game_app : public coel::application {
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.bind();
-        opengl::shader_program::send(u_glyph_tex, 0);
-        glyph_tex.bind(0);
 
         vao.bind();
         glDrawArrays(GL_QUADS, 0, 4);
