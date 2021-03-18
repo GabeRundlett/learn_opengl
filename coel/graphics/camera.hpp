@@ -21,11 +21,12 @@ namespace graphics {
         }
 
         void update_view() {
-            view_mat = glm::translate(
-                glm::rotate(
-                    glm::rotate(glm::identity<glm::mat4>(), -rot.x, glm::vec3(1, 0, 0)),
-                    -rot.y, glm::vec3(0, 1, 0)),
-                -pos);
+            view_mat =
+                glm::translate(
+                    glm::rotate(
+                        glm::rotate(glm::identity<glm::mat4>(), -rot.x, glm::vec3(1, 0, 0)),
+                        -rot.y, glm::vec3(0, 1, 0)),
+                    -pos);
         }
     };
 } // namespace graphics

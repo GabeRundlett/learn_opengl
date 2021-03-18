@@ -5,6 +5,7 @@ project(learn_opengl)
 add_subdirectory(coel)
 
 add_subdirectory(simple_game)
+add_subdirectory(math_testing)
 add_subdirectory(tiles_game)
 add_subdirectory(voxel_game)
 add_subdirectory(shader_toy)

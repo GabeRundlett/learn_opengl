@@ -7,6 +7,7 @@ in vec2 v_tex;
 out vec4 col;
 
 uniform vec3 u_selected_tile_pos;
+uniform vec3 u_selected_tile_nrm;
 uniform sampler2D u_tilemap_tex;
 uniform usampler3D u_tiles_tex;
 uniform vec3 u_cam_pos;
@@ -17,6 +18,9 @@ const float EPSILON = 0.0001f;
 
 struct hit_information {
     vec3 pos, nrm;
+    vec3 tangent, bitangent;
+    vec3 tile_uvw, tile_coord;
+    vec2 face_tex, face_uv;
     int tile_id;
 };
 
@@ -63,6 +67,7 @@ vec2 get_tex_px(int tile_id) {
         case 2: return vec2(1, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(0, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -72,6 +77,7 @@ vec2 get_tex_nx(int tile_id) {
         case 2: return vec2(1, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(0, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -81,6 +87,7 @@ vec2 get_tex_py(int tile_id) {
         case 2: return vec2(0, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(1, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -90,6 +97,7 @@ vec2 get_tex_ny(int tile_id) {
         case 2: return vec2(2, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(1, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -99,6 +107,7 @@ vec2 get_tex_pz(int tile_id) {
         case 2: return vec2(1, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(0, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -108,6 +117,7 @@ vec2 get_tex_nz(int tile_id) {
         case 2: return vec2(1, 0);
         case 3: return vec2(2, 0);
         case 4: return vec2(0, 2);
+        case 5: return vec2(2, 2);
     }
     return vec2(0, 0);
 }
@@ -150,9 +160,17 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
             //     return;
-            i.hit_info.tile_id = sample_tiles(i.hit_info.pos + vec3(ray_step.x * EPSILON, 0, 0));
+            i.hit_info.tile_coord = i.hit_info.pos + vec3(ray_step.x * EPSILON, 0, 0);
+            i.hit_info.tile_id = sample_tiles(i.hit_info.tile_coord);
             if (i.hit_info.tile_id != 0) {
+                i.hit_info.tile_coord = floor(i.hit_info.tile_coord * u_cube_dim) / u_cube_dim;
+                i.hit_info.tile_uvw = (i.hit_info.pos - i.hit_info.tile_coord) * u_cube_dim;
                 i.hit_info.nrm = vec3(sign(-ray_step.x), 0, 0);
+                i.hit_info.tangent = vec3(0, sign(-ray_step.x), 0);
+                i.hit_info.bitangent = vec3(0, 0, sign(-ray_step.x));
+                i.hit_info.face_uv = vec2(i.hit_info.tile_uvw.z, 1 - i.hit_info.tile_uvw.y);
+                if (i.hit_info.nrm.x > 0) i.hit_info.face_tex = i.hit_info.face_uv + get_tex_px(i.hit_info.tile_id);
+                else i.hit_info.face_tex = i.hit_info.face_uv + get_tex_nx(i.hit_info.tile_id);
                 i.hit = true;
                 return;
             }
@@ -171,9 +189,17 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
             //     return;
-            i.hit_info.tile_id = sample_tiles(i.hit_info.pos + vec3(0, ray_step.y * EPSILON, 0));
+            i.hit_info.tile_coord = i.hit_info.pos + vec3(0, ray_step.y * EPSILON, 0);
+            i.hit_info.tile_id = sample_tiles(i.hit_info.tile_coord);
             if (i.hit_info.tile_id != 0) {
+                i.hit_info.tile_coord = floor(i.hit_info.tile_coord * u_cube_dim) / u_cube_dim;
+                i.hit_info.tile_uvw = (i.hit_info.pos - i.hit_info.tile_coord) * u_cube_dim;
                 i.hit_info.nrm = vec3(0, sign(-ray_step.y), 0);
+                i.hit_info.tangent = vec3(sign(-ray_step.y), 0, 0);
+                i.hit_info.bitangent = vec3(0, 0, sign(-ray_step.y));
+                i.hit_info.face_uv = vec2(i.hit_info.tile_uvw.x, i.hit_info.tile_uvw.z);
+                if (i.hit_info.nrm.y > 0) i.hit_info.face_tex = i.hit_info.face_uv + get_tex_py(i.hit_info.tile_id);
+                else i.hit_info.face_tex = i.hit_info.face_uv + get_tex_ny(i.hit_info.tile_id);
                 i.hit = true;
                 return;
             }
@@ -192,9 +218,17 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
             //     return;
-            i.hit_info.tile_id = sample_tiles(i.hit_info.pos + vec3(0, 0, ray_step.z * EPSILON));
+            i.hit_info.tile_coord = i.hit_info.pos + vec3(0, 0, ray_step.z * EPSILON);
+            i.hit_info.tile_id = sample_tiles(i.hit_info.tile_coord);
             if (i.hit_info.tile_id != 0) {
+                i.hit_info.tile_coord = floor(i.hit_info.tile_coord * u_cube_dim) / u_cube_dim;
+                i.hit_info.tile_uvw = (i.hit_info.pos - i.hit_info.tile_coord) * u_cube_dim;
                 i.hit_info.nrm = vec3(0, 0, sign(-ray_step.z));
+                i.hit_info.tangent = vec3(0, sign(-ray_step.z), 0);
+                i.hit_info.bitangent = vec3(sign(-ray_step.z), 0, 0);
+                i.hit_info.face_uv = vec2(i.hit_info.tile_uvw.x, 1 - i.hit_info.tile_uvw.y);
+                if (i.hit_info.nrm.z > 0) i.hit_info.face_tex = i.hit_info.face_uv + get_tex_pz(i.hit_info.tile_id);
+                else i.hit_info.face_tex = i.hit_info.face_uv + get_tex_nz(i.hit_info.tile_id);
                 i.hit = true;
                 return;
             }
@@ -231,60 +265,44 @@ void main() {
 
     raycast_information light_raycast;
     raycast(cam_raycast.hit_info.pos + cam_raycast.hit_info.nrm * space_scale * EPSILON, -light_dir, light_raycast);
-    float light = max(dot(cam_raycast.hit_info.nrm, -light_dir), 0.1) * 2 * max(float(!light_raycast.hit), 0.3);
+    float light = max(dot(cam_raycast.hit_info.nrm, -light_dir), 0.01) * 50 * max(float(!light_raycast.hit), 0.03);
 
     vec3 p = floor(cam_raycast.hit_info.pos * u_cube_dim) / u_cube_dim;
     vec3 c = (cam_raycast.hit_info.pos - p) * u_cube_dim;
 
-    vec2 face_coord = vec2(0), face_tex = vec2(0);
+    // vec2 face_coord = vec2(0), face_tex = vec2(0);
     // tile_texcoords texcoords = get_texcoords(cam_raycast.hit_info.tile_id);
     vec3 hit_tan, hit_bitan;
     float ao = 0;
     if (cam_raycast.hit_info.nrm.x != 0) {
-        face_coord = c.zy;
-        face_coord.y = 1 - face_coord.y;
-        hit_tan = vec3(0, 1, 0);
-        hit_bitan = vec3(0, 0, 1);
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_tan) * space_scale) != 0) * face_coord.y * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_tan) * space_scale) != 0) * (1 - face_coord.y) * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_bitan) * space_scale) != 0) * (1 - face_coord.x) * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_bitan) * space_scale) != 0) * face_coord.x * 0.25;
-        if (cam_raycast.hit_info.nrm.x > 0) face_tex = face_coord + get_tex_px(cam_raycast.hit_info.tile_id);
-        else face_tex = face_coord + get_tex_nx(cam_raycast.hit_info.tile_id);
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.x) * space_scale) != 0) * cam_raycast.hit_info.face_uv.y * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.x) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.y) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.x) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.x) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.x) * space_scale) != 0) * cam_raycast.hit_info.face_uv.x * 0.25;
     } else if (cam_raycast.hit_info.nrm.y != 0) {
-        face_coord = c.xz;
-        hit_tan = vec3(1, 0, 0);
-        hit_bitan = vec3(0, 0, 1);
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_tan) * space_scale) != 0) * (1 - face_coord.x) * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_tan) * space_scale) != 0) * face_coord.x * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_bitan) * space_scale) != 0) * (1 - face_coord.y) * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_bitan) * space_scale) != 0) * face_coord.y * 0.25;
-        if (cam_raycast.hit_info.nrm.y > 0) face_tex = face_coord + get_tex_py(cam_raycast.hit_info.tile_id);
-        else face_tex = face_coord + get_tex_ny(cam_raycast.hit_info.tile_id);
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.y) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.x) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.y) * space_scale) != 0) * cam_raycast.hit_info.face_uv.x * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.y) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.y) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.y) * space_scale) != 0) * cam_raycast.hit_info.face_uv.y * 0.25;
     } else if (cam_raycast.hit_info.nrm.z != 0) {
-        face_coord = c.xy;
-        face_coord.y = 1 - face_coord.y;
-        hit_tan = vec3(1, 0, 0);
-        hit_bitan = vec3(0, 1, 0);
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_tan) * space_scale) != 0) * (1 - face_coord.x) * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_tan) * space_scale) != 0) * face_coord.x * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - hit_bitan) * space_scale) != 0) * face_coord.y * 0.25;
-        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + hit_bitan) * space_scale) != 0) * (1 - face_coord.y) * 0.25;
-        if (cam_raycast.hit_info.nrm.z > 0) face_tex = face_coord + get_tex_pz(cam_raycast.hit_info.tile_id);
-        else face_tex = face_coord + get_tex_nz(cam_raycast.hit_info.tile_id);
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.z) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.y) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.tangent * cam_raycast.hit_info.nrm.z) * space_scale) != 0) * cam_raycast.hit_info.face_uv.y * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 - cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.z) * space_scale) != 0) * (1 - cam_raycast.hit_info.face_uv.x) * 0.25;
+        ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.z) * space_scale) != 0) * cam_raycast.hit_info.face_uv.x * 0.25;
     }
     ao = 1 - sq(ao) * 4;
-    col = vec4(texture(u_tilemap_tex, face_tex / 128 * 16).rgb * light * 1.5 * ao, 1);
-    // col = vec4(coord_floor(cam_raycast.hit_info.pos), 1);
+    col = vec4(texture(u_tilemap_tex, cam_raycast.hit_info.face_tex / 128 * 16).rgb * (light * vec3(1, 0.7, 0.6) + ao * vec3(0.3, 0.4, 1) * 2), 1);
+    // col = vec4(vec3(ao), 1);
     vec3 floor_selected_tile = coord_floor(u_selected_tile_pos * space_scale + space_offset);
     vec3 floor_cam_hit_tile = coord_floor(cam_raycast.hit_info.pos - cam_raycast.hit_info.nrm * 0.5 * space_scale);
 
     if (floor_cam_hit_tile == floor_selected_tile) {
         const float selection_outline_width = 0.02;
-        if (face_coord.x < selection_outline_width ||
-            face_coord.x > 1.0f - selection_outline_width ||
-            face_coord.y < selection_outline_width ||
-            face_coord.y > 1.0f - selection_outline_width)
-        col = vec4(vec3(1)-col.rgb, 1);
+        float brightness = clamp(float(u_selected_tile_nrm == cam_raycast.hit_info.nrm), 0.5, 1.0);
+        if (cam_raycast.hit_info.face_uv.x < selection_outline_width ||
+            cam_raycast.hit_info.face_uv.x > 1.0f - selection_outline_width ||
+            cam_raycast.hit_info.face_uv.y < selection_outline_width ||
+            cam_raycast.hit_info.face_uv.y > 1.0f - selection_outline_width)
+            col = vec4((vec3(1)-col.rgb) * brightness, 1);
     }
 }

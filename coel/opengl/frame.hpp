@@ -19,7 +19,7 @@ namespace opengl {
             bind();
         }
         renderbuffer(const configuration &conf) : renderbuffer() {
-            regenerate(conf);
+            recreate(conf);
         }
         renderbuffer(const renderbuffer &) = delete;
         renderbuffer(renderbuffer &&other) {
@@ -38,7 +38,8 @@ namespace opengl {
             glDeleteRenderbuffers(1, &id);
         }
 
-        void regenerate(const configuration &conf) {
+        void recreate(const configuration &conf) {
+            bind();
             glRenderbufferStorage(GL_RENDERBUFFER, conf.gl_format, conf.dim.x, conf.dim.y);
         }
 
@@ -84,7 +85,8 @@ namespace opengl {
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, gl_attachment_id, GL_RENDERBUFFER, rbo.id);
         }
 
-        static void verify() {
+        void verify() {
+            bind();
             if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                 std::cout << "failed to complete creation of framebuffer\n";
         }

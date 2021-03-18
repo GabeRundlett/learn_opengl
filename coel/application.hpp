@@ -223,5 +223,9 @@ namespace coel {
             mouse_pos = glm::vec2(frame_dim.x / 2, frame_dim.y / 2);
             glfwSetInputMode(glfw.window_ptr, GLFW_CURSOR, should_capture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
+        inline void set_mouse_pos(const glm::vec2 p) {
+            mouse_pos = p;
+            glfwSetCursorPos(glfw.window_ptr, mouse_pos.x, mouse_pos.y);
+        }
     };
 } // namespace coel

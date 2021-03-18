@@ -3,7 +3,18 @@
 #include "noise.hpp"
 #include <fmt/core.h>
 
+#include <KHR/khrplatform.h>
+
 struct chunk3d {
+    enum tile_id {
+        air = 0,
+        stone,
+        grass,
+        dirt,
+        log,
+        leaves,
+    };
+
     struct vertex {
         glm::vec3 pos, nrm;
         glm::vec2 tex;
@@ -80,37 +91,74 @@ struct chunk3d {
     chunk3d() {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
-
         fractal_noise_config noise_conf{
-            .amplitude = 1.0f,
+            .amplitude = 20.0f,
             .persistance = 0.5f,
-            .scale = 0.01f,
+            .scale = 0.005f,
             .lacunarity = 2.0f,
             .octaves = 4,
         };
+
         for (std::uint32_t z = 0; z < dim.z; ++z) {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    float y_scale = 1.0f / (y + 1);
-                    float density = fractal_noise(glm::vec3(x, y, z), noise_conf) * 1000 * y_scale * y_scale;
-                    std::uint8_t val = 0;
-                    if (density > 0.2)
-                        val = 1;
-                    else if (density > 0.15)
-                        val = 2;
-                    else if (density > 0.125)
-                        val = 3;
-                    else if (density > 0.05)
-                        val = 4;
-                    if (y == 0)
-                        val = 1;
+                    float height = fractal_noise(glm::vec2(x, z), noise_conf) + 40;
+                    std::uint8_t val = air;
+
+                    if (y < height - 4)
+                        val = stone;
+                    else if (y < height - 1)
+                        val = dirt;
+                    else if (y < height)
+                        val = grass;
+
                     tile = val;
                 }
             }
         }
 
+        for (std::uint32_t z = 0; z < dim.z; ++z) {
+            for (std::uint32_t x = 0; x < dim.x; ++x) {
+                float height = fractal_noise(glm::vec2(x, z), noise_conf) + 40;
+                auto &tile = tiles[x + int(height) * dim.x + z * dim.x * dim.y];
+                if (tile == grass)
+                    if (rand() % 200 == 0)
+                        generate_tree(x, int(height + 1), z);
+            }
+        }
+
         update();
+    }
+
+    void generate_tree(int x, int y, int z) {
+        tiles[x + (y - 1) * dim.x + z * dim.x * dim.y] = dirt;
+
+        float radius = 2.0f + float(rand() % 50) / 100.0f;
+        int irad = int(radius);
+
+        for (int zi = -irad; zi <= irad; ++zi) {
+            for (int yi = -irad; yi <= irad; ++yi) {
+                for (int xi = -irad; xi <= irad; ++xi) {
+                    glm::uvec3 p = {x + xi, y + yi + 7 - 0.5f * irad, z + zi};
+                    glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y + 7 - 0.5f * irad, z);
+                    if (p.x > 0 && p.x < dim.x && p.y > 0 && p.y < dim.y && p.z > 0 && p.z < dim.z) {
+                        if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < radius * radius) {
+                            auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
+                            tile = leaves;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int yi = 0; yi < 7; ++yi) {
+            glm::uvec3 p = {x, y + yi, z};
+            if (p.x > 0 && p.x < dim.x && p.y > 0 && p.y < dim.y && p.z > 0 && p.z < dim.z) {
+                auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
+                tile = log;
+            }
+        }
     }
 
     struct hit_information {
@@ -140,10 +188,9 @@ struct chunk3d {
         return tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
     }
 
-    void raycast(glm::vec3 ray_origin, glm::vec3 ray_dir, raycast_information &i) {
+    void raycast(glm::vec3 ray_origin, glm::vec3 ray_dir, raycast_information &i, const int MAX_ITER = 1000) {
         using namespace glm;
 
-        const int MAX_ITER = 1000;
         const float EPSILON = 0.001f;
         const vec3 space_scale = vec3(1);
 
