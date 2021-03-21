@@ -7,27 +7,6 @@ static inline int32_t fastfloor(float fp) {
     return (fp < i) ? (i - 1) : (i);
 }
 
-/**
- * Permutation table. This is just a random jumble of all numbers 0-255.
- *
- * This produce a repeatable pattern of 256, but Ken Perlin stated
- * that it is not a problem for graphic texture as the noise features disappear
- * at a distance far enough to be able to see a repeatable pattern of 256.
- *
- * This needs to be exactly the same for all instances on all platforms,
- * so it's easiest to just keep it as static explicit data.
- * This also removes the need for any initialisation of this class.
- *
- * Note that making this an uint32_t[] instead of a uint8_t[] might make the
- * code run faster on platforms with a high penalty for unaligned single
- * byte addressing. Intel x86 is generally single-byte-friendly, but
- * some other CPUs are faster with 4-aligned reads.
- * However, a char[] is smaller, which avoids cache trashing, and that
- * is probably the most important aspect on most architectures.
- * This array is accessed a *lot* by the noise functions.
- * A vector-valued noise over 3D accesses it 96 times, and a
- * float-valued 4D noise 64 times. We want this to fit in the cache!
- */
 static const uint8_t perm[256] = {
     151, 160, 137, 91, 90, 15,
     131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23,

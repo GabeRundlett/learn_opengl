@@ -15,6 +15,8 @@ struct chunk3d {
         leaves,
     };
 
+    glm::vec3 pos;
+
     struct vertex {
         glm::vec3 pos, nrm;
         glm::vec2 tex;
@@ -88,7 +90,7 @@ struct chunk3d {
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
     });
 
-    chunk3d() {
+    chunk3d(glm::vec3 pos) : pos(pos) {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
         fractal_noise_config noise_conf{
@@ -103,14 +105,14 @@ struct chunk3d {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    float height = fractal_noise(glm::vec2(x, z), noise_conf) + 40;
+                    float height = fractal_noise(glm::vec2(pos.x + x, pos.z + z), noise_conf) + 40;
                     std::uint8_t val = air;
 
-                    if (y < height - 4)
+                    if (pos.y + y < height - 4)
                         val = stone;
-                    else if (y < height - 1)
+                    else if (pos.y + y < height - 1)
                         val = dirt;
-                    else if (y < height)
+                    else if (pos.y + y < height)
                         val = grass;
 
                     tile = val;
@@ -125,6 +127,10 @@ struct chunk3d {
                 if (tile == grass)
                     if (rand() % 200 == 0)
                         generate_tree(x, int(height + 1), z);
+
+                // if (tile == grass)
+                //     if (rand() % 200 == 0)
+                //         generate_log(x, int(height + 1), z);
             }
         }
 
@@ -226,9 +232,6 @@ struct chunk3d {
                    to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x &&
                    to_travel_x.x * ray_step.x < to_travel_z.x * ray_step.x) {
                 i.hit_info.pos += to_travel_x;
-                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
-                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
-                //     return;
                 i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(ray_step.x * EPSILON, 0, 0));
                 if (i.hit_info.tile_id != 0) {
                     i.hit_info.nrm = vec3(sign(-ray_step.x), 0, 0);
@@ -247,9 +250,6 @@ struct chunk3d {
                    to_travel_y.y * ray_step.y < to_travel_x.y * ray_step.y &&
                    to_travel_y.y * ray_step.y < to_travel_z.y * ray_step.y) {
                 i.hit_info.pos += to_travel_y;
-                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
-                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
-                //     return;
                 i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(0, ray_step.y * EPSILON, 0));
                 if (i.hit_info.tile_id != 0) {
                     i.hit_info.nrm = vec3(0, sign(-ray_step.y), 0);
@@ -268,9 +268,6 @@ struct chunk3d {
                    to_travel_z.z * ray_step.z < to_travel_y.z * ray_step.z &&
                    to_travel_z.z * ray_step.z < to_travel_x.z * ray_step.z) {
                 i.hit_info.pos += to_travel_z;
-                // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 ||
-                //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
-                //     return;
                 i.hit_info.tile_id = get_tile(i.hit_info.pos + vec3(0, 0, ray_step.z * EPSILON));
                 if (i.hit_info.tile_id != 0) {
                     i.hit_info.nrm = vec3(0, 0, sign(-ray_step.z));

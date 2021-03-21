@@ -10,10 +10,11 @@ uniform vec3 u_selected_tile_pos;
 uniform vec3 u_selected_tile_nrm;
 uniform sampler2D u_tilemap_tex;
 uniform usampler3D u_tiles_tex;
-uniform vec3 u_cam_pos;
+uniform vec3 u_cube_pos;
 uniform vec3 u_cube_dim;
+uniform vec3 u_cam_pos;
 
-const int MAX_ITER = 128 * 3;
+const int MAX_ITER = 128 * 2;
 const float EPSILON = 0.0001f;
 
 struct hit_information {
@@ -41,25 +42,6 @@ vec3 coord_floor(in vec3 p) {
 int sample_tiles(vec3 p) {
     return int(texture(u_tiles_tex, coord_floor(p)).r);
 }
-
-/*
-tile_texcoords get_texcoords(int tile_id) {
-    tile_texcoords t;
-    switch(tile_id) {
-        case 1:
-            t.px = vec2(0, 0), t.nx = vec2(0, 0);
-            t.py = vec2(0, 0), t.ny = vec2(0, 0);
-            t.pz = vec2(0, 0), t.nz = vec2(0, 0);
-            break;
-        case 2:
-            t.px = vec2(0, 0), t.nx = vec2(0, 0);
-            t.py = vec2(0, 0), t.ny = vec2(0, 0);
-            t.pz = vec2(0, 0), t.nz = vec2(0, 0);
-            break;
-    }
-    return t;
-}
-*/
 
 vec2 get_tex_px(int tile_id) {
     switch(tile_id) {
@@ -123,7 +105,7 @@ vec2 get_tex_nz(int tile_id) {
 }
 
 vec3 space_scale = vec3(1) / u_cube_dim;
-vec3 space_offset = vec3(0.5, 0.5, 0.5);
+vec3 space_offset = vec3(0.5, 0.5, 0.5) - u_cube_pos * space_scale;
 
 void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
     i.hit = false;
@@ -152,7 +134,8 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
     vec3 to_travel_x = vec3(ray_d.x, slope_xy * ray_d.x, slope_xz * ray_d.x);
     vec3 to_travel_y = vec3(slope_yx * ray_d.y, ray_d.y, slope_yz * ray_d.y);
     vec3 to_travel_z = vec3(slope_zx * ray_d.z, slope_zy * ray_d.z, ray_d.z);
-    while (i.steps < MAX_ITER) {
+    int iter = 0;
+    while (i.steps < MAX_ITER && iter < MAX_ITER) {
         while (i.steps < MAX_ITER &&
             to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x && 
             to_travel_x.x * ray_step.x < to_travel_z.x * ray_step.x) {
@@ -240,7 +223,7 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
                 ray_step.z);
             ++i.steps;
         }
-        ++i.steps;
+        ++iter;
     }
 }
 
@@ -265,13 +248,11 @@ void main() {
 
     raycast_information light_raycast;
     raycast(cam_raycast.hit_info.pos + cam_raycast.hit_info.nrm * space_scale * EPSILON, -light_dir, light_raycast);
-    float light = max(dot(cam_raycast.hit_info.nrm, -light_dir), 0.01) * 50 * max(float(!light_raycast.hit), 0.03);
+    float sunlight = max(dot(cam_raycast.hit_info.nrm, -light_dir), 0.01) * 50 * max(float(!light_raycast.hit), 0.03);
 
     vec3 p = floor(cam_raycast.hit_info.pos * u_cube_dim) / u_cube_dim;
     vec3 c = (cam_raycast.hit_info.pos - p) * u_cube_dim;
 
-    // vec2 face_coord = vec2(0), face_tex = vec2(0);
-    // tile_texcoords texcoords = get_texcoords(cam_raycast.hit_info.tile_id);
     vec3 hit_tan, hit_bitan;
     float ao = 0;
     if (cam_raycast.hit_info.nrm.x != 0) {
@@ -291,8 +272,8 @@ void main() {
         ao += float(sample_tiles(cam_raycast.hit_info.pos + (cam_raycast.hit_info.nrm * 0.5 + cam_raycast.hit_info.bitangent * cam_raycast.hit_info.nrm.z) * space_scale) != 0) * cam_raycast.hit_info.face_uv.x * 0.25;
     }
     ao = 1 - sq(ao) * 4;
-    col = vec4(texture(u_tilemap_tex, cam_raycast.hit_info.face_tex / 128 * 16).rgb * (light * vec3(1, 0.7, 0.6) + ao * vec3(0.3, 0.4, 1) * 2), 1);
-    // col = vec4(vec3(ao), 1);
+    vec3 light = sunlight * vec3(1, 0.7, 0.6) + ao * vec3(0.3, 0.4, 1) * 2;
+    col = vec4(texture(u_tilemap_tex, cam_raycast.hit_info.face_tex / 128 * 16).rgb * light, 1);
     vec3 floor_selected_tile = coord_floor(u_selected_tile_pos * space_scale + space_offset);
     vec3 floor_cam_hit_tile = coord_floor(cam_raycast.hit_info.pos - cam_raycast.hit_info.nrm * 0.5 * space_scale);
 

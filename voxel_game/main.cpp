@@ -26,6 +26,7 @@ class voxel_game : public coel::application {
     opengl::shader_uniform
         u_view_mat,
         u_proj_mat,
+        u_cube_pos,
         u_cube_dim,
         u_cam_pos,
         u_selected_tile_pos,
@@ -34,7 +35,18 @@ class voxel_game : public coel::application {
         u_tiles_tex;
 
     coel::player3d player;
-    chunk3d chunk;
+
+    std::vector<chunk3d *> chunks = {
+        new chunk3d({0, 0, 0}),
+        // new chunk3d({128, 0, 0}),
+        // new chunk3d({128, 0, 128}),
+        // new chunk3d({0, 0, 128}),
+        // new chunk3d({-128, 0, 0}),
+        // new chunk3d({-128, 0, 128}),
+        // new chunk3d({-128, 0, -128}),
+        // new chunk3d({128, 0, -128}),
+        // new chunk3d({0, 0, -128}),
+    };
 
     chunk3d::raycast_information tile_pick_ray;
     bool should_remove = false, should_place = false;
@@ -47,6 +59,7 @@ class voxel_game : public coel::application {
         u_view_mat = tile_shader.find_uniform("u_view_mat");
         u_proj_mat = tile_shader.find_uniform("u_proj_mat");
         u_cube_dim = tile_shader.find_uniform("u_cube_dim");
+        u_cube_pos = tile_shader.find_uniform("u_cube_pos");
         u_cam_pos = tile_shader.find_uniform("u_cam_pos");
 
         u_selected_tile_pos = tile_shader.find_uniform("u_selected_tile_pos");
@@ -75,50 +88,53 @@ class voxel_game : public coel::application {
         shader_init();
     }
 
+    ~voxel_game() {
+        for (auto &chunk : chunks)
+            delete chunk;
+    }
+
     void on_update(coel::duration elapsed) {
         player.update(elapsed);
-
-        if (glm::dot(player.vel, player.vel) != 0.0f) {
-        }
-
-        chunk.raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
 
         tile_shader.bind();
         opengl::shader_program::send(u_view_mat, player.cam.view_mat);
         opengl::shader_program::send(u_cam_pos, player.cam.pos);
 
-        if (tile_pick_ray.hit) {
-            tile_pick_ray.hit_info.pos -= tile_pick_ray.hit_info.nrm * 0.5f;
-            opengl::shader_program::send(u_selected_tile_pos, tile_pick_ray.hit_info.pos);
-            opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
-        }
+        for (auto &chunk : chunks) {
+            chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
 
-        if (should_place && tile_pick_ray.hit && now - last_place > 0.02s) {
-            last_place = now;
-            float radius = 5;
-            for (float zi = -radius; zi < radius; ++zi) {
-                for (float yi = -radius; yi < radius; ++yi) {
-                    for (float xi = -radius; xi < radius; ++xi) {
-                        if (xi * xi + yi * yi + zi * zi < radius * radius)
-                            chunk.get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = 1;
+            if (tile_pick_ray.hit) {
+                tile_pick_ray.hit_info.pos -= tile_pick_ray.hit_info.nrm * 0.5f;
+                opengl::shader_program::send(u_selected_tile_pos, tile_pick_ray.hit_info.pos);
+                opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
+            }
+
+            if (should_place && tile_pick_ray.hit && now - last_place > 0.1s) {
+                last_place = now;
+                float radius = 1;
+                for (float zi = -radius; zi < radius; ++zi) {
+                    for (float yi = -radius; yi < radius; ++yi) {
+                        for (float xi = -radius; xi < radius; ++xi) {
+                            if (xi * xi + yi * yi + zi * zi < radius * radius)
+                                chunk->get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = 1;
+                        }
+                    }
+                }
+            } else if (should_remove && tile_pick_ray.hit && now - last_remove > 0.1s) {
+                last_remove = now;
+                float radius = 1;
+                for (float zi = -radius; zi < radius; ++zi) {
+                    for (float yi = -radius; yi < radius; ++yi) {
+                        for (float xi = -radius; xi < radius; ++xi) {
+                            if (xi * xi + yi * yi + zi * zi < radius * radius)
+                                chunk->get_tile(tile_pick_ray.hit_info.pos + vec3(xi, yi, zi)) = 0;
+                        }
                     }
                 }
             }
-        } else if (should_remove && tile_pick_ray.hit && now - last_remove > 0.02s) {
-            last_remove = now;
-            float radius = 5;
-            for (float zi = -radius; zi < radius; ++zi) {
-                for (float yi = -radius; yi < radius; ++yi) {
-                    for (float xi = -radius; xi < radius; ++xi) {
-                        if (xi * xi + yi * yi + zi * zi < radius * radius)
-                            chunk.get_tile(tile_pick_ray.hit_info.pos + vec3(xi, yi, zi)) = 0;
-                    }
-                }
-            }
+            if (should_remove || should_place)
+                chunk->update();
         }
-
-        if (should_remove || should_place)
-            chunk.update();
     }
 
     void on_draw() {
@@ -133,14 +149,17 @@ class voxel_game : public coel::application {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        tile_shader.bind();
-        opengl::shader_program::send(u_tilemap_tex, 0);
-        opengl::shader_program::send(u_tiles_tex, 1);
-        opengl::shader_program::send(u_cube_dim, vec3(chunk.dim));
-        chunk.tilemap_tex.bind(0);
-        chunk.tiles_tex.bind(1);
-        chunk.vao.bind();
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        for (auto &chunk : chunks) {
+            tile_shader.bind();
+            opengl::shader_program::send(u_tilemap_tex, 0);
+            opengl::shader_program::send(u_tiles_tex, 1);
+            opengl::shader_program::send(u_cube_pos, vec3(chunk->pos));
+            opengl::shader_program::send(u_cube_dim, vec3(chunk->dim));
+            chunk->tilemap_tex.bind(0);
+            chunk->tiles_tex.bind(1);
+            chunk->vao.bind();
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         opengl::framebuffer::unbind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
