@@ -2,7 +2,6 @@
 #include <coel/game/player.hpp>
 #include <coel/opengl/renderers/quad.hpp>
 #include "chunk.hpp"
-#include "noise.hpp"
 
 using namespace glm;
 using namespace std::chrono_literals;
@@ -38,14 +37,6 @@ class voxel_game : public coel::application {
 
     std::vector<chunk3d *> chunks = {
         new chunk3d({0, 0, 0}),
-        // new chunk3d({128, 0, 0}),
-        // new chunk3d({128, 0, 128}),
-        // new chunk3d({0, 0, 128}),
-        // new chunk3d({-128, 0, 0}),
-        // new chunk3d({-128, 0, 128}),
-        // new chunk3d({-128, 0, -128}),
-        // new chunk3d({128, 0, -128}),
-        // new chunk3d({0, 0, -128}),
     };
 
     chunk3d::raycast_information tile_pick_ray;

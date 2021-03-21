@@ -1,6 +1,6 @@
 #pragma once
 
-#include "noise.hpp"
+#include <coel/graphics/noise.hpp>
 #include <fmt/core.h>
 
 #include <KHR/khrplatform.h>
@@ -93,7 +93,7 @@ struct chunk3d {
     chunk3d(glm::vec3 pos) : pos(pos) {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
-        fractal_noise_config noise_conf{
+        coel::fractal_noise_config noise_conf{
             .amplitude = 20.0f,
             .persistance = 0.5f,
             .scale = 0.005f,
@@ -105,7 +105,7 @@ struct chunk3d {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    float height = fractal_noise(glm::vec2(pos.x + x, pos.z + z), noise_conf) + 40;
+                    float height = coel::fractal_noise(glm::vec2(pos.x + x, pos.z + z), noise_conf) + 40;
                     std::uint8_t val = air;
 
                     if (pos.y + y < height - 4)
@@ -127,10 +127,6 @@ struct chunk3d {
                 if (tile == grass)
                     if (rand() % 200 == 0)
                         generate_tree(x, int(height + 1), z);
-
-                // if (tile == grass)
-                //     if (rand() % 200 == 0)
-                //         generate_log(x, int(height + 1), z);
             }
         }
 
@@ -209,7 +205,7 @@ struct chunk3d {
             i.hit = true;
             return;
         }
-        vec3 ray_p = floor(ray_origin / space_scale) * space_scale;
+        vec3 ray_p = coel::floor(ray_origin / space_scale) * space_scale;
         vec3 ray_d = ray_p - ray_origin;
         vec3 ray_step = -space_scale;
         if (ray_dir.x > 0)
