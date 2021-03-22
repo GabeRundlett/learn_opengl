@@ -314,6 +314,9 @@ namespace coel {
         return value;
     };
 
+    static inline constexpr glm::vec2 floor(glm::vec2 v) {
+        return glm::vec2(std::floor(v.x), std::floor(v.y));
+    }
     static inline constexpr glm::vec3 floor(glm::vec3 v) {
         return glm::vec3(std::floor(v.x), std::floor(v.y), std::floor(v.z));
     }

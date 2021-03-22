@@ -222,11 +222,20 @@ namespace opengl {
         static void send(const shader_uniform &uniform, const glm::vec2 &v) {
             glUniform2fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
         }
+        static void send(const shader_uniform &uniform, const glm::vec2 *v, std::size_t count) {
+            glUniform2fv(uniform.location, (GLsizei)count, reinterpret_cast<const float *>(v));
+        }
         static void send(const shader_uniform &uniform, const glm::vec3 &v) {
             glUniform3fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
         }
+        static void send(const shader_uniform &uniform, const glm::vec3 *v, std::size_t count) {
+            glUniform3fv(uniform.location, (GLsizei)count, reinterpret_cast<const float *>(v));
+        }
         static void send(const shader_uniform &uniform, const glm::vec4 &v) {
             glUniform4fv(uniform.location, 1, reinterpret_cast<const float *>(&v));
+        }
+        static void send(const shader_uniform &uniform, const glm::vec4 *v, std::size_t count) {
+            glUniform4fv(uniform.location, (GLsizei)count, reinterpret_cast<const float *>(v));
         }
         static void send(const shader_uniform &uniform, const glm::mat4 &m) {
             glUniformMatrix4fv(uniform.location, 1, false, reinterpret_cast<const float *>(&m));

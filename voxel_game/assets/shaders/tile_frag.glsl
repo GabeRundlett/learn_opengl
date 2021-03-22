@@ -137,8 +137,8 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
     int iter = 0;
     while (i.steps < MAX_ITER && iter < MAX_ITER) {
         while (i.steps < MAX_ITER &&
-            to_travel_x.x * ray_step.x < to_travel_y.x * ray_step.x && 
-            to_travel_x.x * ray_step.x < to_travel_z.x * ray_step.x) {
+            to_travel_x.x * ray_step.x <= to_travel_y.x * ray_step.x && 
+            to_travel_x.x * ray_step.x <= to_travel_z.x * ray_step.x) {
             i.hit_info.pos += to_travel_x;
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
@@ -166,8 +166,8 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
             ++i.steps;
         }
         while (i.steps < MAX_ITER &&
-            to_travel_y.y * ray_step.y < to_travel_x.y * ray_step.y && 
-            to_travel_y.y * ray_step.y < to_travel_z.y * ray_step.y) {
+            to_travel_y.y * ray_step.y <= to_travel_x.y * ray_step.y && 
+            to_travel_y.y * ray_step.y <= to_travel_z.y * ray_step.y) {
             i.hit_info.pos += to_travel_y;
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
@@ -195,8 +195,8 @@ void raycast(vec3 ray_origin, vec3 ray_dir, inout raycast_information i) {
             ++i.steps;
         }
         while (i.steps < MAX_ITER &&
-            to_travel_z.z * ray_step.z < to_travel_y.z * ray_step.z && 
-            to_travel_z.z * ray_step.z < to_travel_x.z * ray_step.z) {
+            to_travel_z.z * ray_step.z <= to_travel_y.z * ray_step.z && 
+            to_travel_z.z * ray_step.z <= to_travel_x.z * ray_step.z) {
             i.hit_info.pos += to_travel_z;
             // if (i.hit_info.pos.x < 0 || i.hit_info.pos.y < 0 || i.hit_info.pos.z < 0 || 
             //     i.hit_info.pos.x > 1 || i.hit_info.pos.y > 1 || i.hit_info.pos.z > 1)
@@ -274,6 +274,7 @@ void main() {
     ao = 1 - sq(ao) * 4;
     vec3 light = sunlight * vec3(1, 0.7, 0.6) + ao * vec3(0.3, 0.4, 1) * 2;
     col = vec4(texture(u_tilemap_tex, cam_raycast.hit_info.face_tex / 128 * 16).rgb * light, 1);
+    col.rgb = mix(col.rgb, vec3(1.81f, 2.01f, 5.32f) * 1.1, pow(clamp(length(cam_pos - cam_raycast.hit_info.pos), 0, 1), 2));
     vec3 floor_selected_tile = coord_floor(u_selected_tile_pos * space_scale + space_offset);
     vec3 floor_cam_hit_tile = coord_floor(cam_raycast.hit_info.pos - cam_raycast.hit_info.nrm * 0.5 * space_scale);
 
