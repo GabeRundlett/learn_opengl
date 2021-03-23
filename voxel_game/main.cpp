@@ -77,6 +77,9 @@ class voxel_game : public coel::application {
         opengl::framebuffer::attach(scene_rbo, GL_DEPTH_STENCIL_ATTACHMENT);
 
         shader_init();
+
+        player.cam.fov = glm::radians(90.0f);
+        player.cam.update_proj();
     }
 
     ~voxel_game() {
@@ -84,13 +87,7 @@ class voxel_game : public coel::application {
             delete chunk;
     }
 
-    void on_update(coel::duration elapsed) {
-        player.update(elapsed);
-
-        tile_shader.bind();
-        opengl::shader_program::send(u_view_mat, player.cam.view_mat);
-        opengl::shader_program::send(u_cam_pos, player.cam.pos);
-
+    void place() {
         for (auto &chunk : chunks) {
             chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
 
@@ -100,9 +97,9 @@ class voxel_game : public coel::application {
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
 
-            if (should_place && tile_pick_ray.hit && now - last_place > 0.1s) {
-                last_place = now;
+            if (should_place && tile_pick_ray.hit) {
                 float radius = 1;
+                last_place = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
                         for (float xi = -radius; xi < radius; ++xi) {
@@ -111,7 +108,21 @@ class voxel_game : public coel::application {
                         }
                     }
                 }
-            } else if (should_remove && tile_pick_ray.hit && now - last_remove > 0.1s) {
+            }
+        }
+    }
+
+    void remove() {
+        for (auto &chunk : chunks) {
+            chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
+
+            if (tile_pick_ray.hit) {
+                tile_pick_ray.hit_info.pos -= tile_pick_ray.hit_info.nrm * 0.5f;
+                opengl::shader_program::send(u_selected_tile_pos, tile_pick_ray.hit_info.pos);
+                opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
+            }
+
+            if (should_remove && tile_pick_ray.hit) {
                 last_remove = now;
                 float radius = 1;
                 for (float zi = -radius; zi < radius; ++zi) {
@@ -123,16 +134,31 @@ class voxel_game : public coel::application {
                     }
                 }
             }
+
             if (should_remove || should_place)
                 chunk->update();
         }
+    }
+
+    void on_update(coel::duration elapsed) {
+        player.update(elapsed);
+
+        tile_shader.bind();
+        opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+        opengl::shader_program::send(u_cam_pos, player.cam.pos);
+
+        if (now - last_place > 0.02s)
+            place();
+
+        if (now - last_remove > 0.02s)
+            remove();
     }
 
     void on_draw() {
         scene_frame.bind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
 
-        glClearColor(1.81f, 2.01f, 5.32f, 1.0f);
+        glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
@@ -214,10 +240,16 @@ class voxel_game : public coel::application {
     }
 
     void on_mouse_button(const coel::mouse_button_event &e) {
-        if (e.button == GLFW_MOUSE_BUTTON_LEFT)
-            should_remove = e.action == GLFW_PRESS, last_remove = now - 1s;
-        if (e.button == GLFW_MOUSE_BUTTON_RIGHT)
-            should_place = e.action == GLFW_PRESS, last_place = now - 1s;
+        if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
+            should_remove = e.action == GLFW_PRESS;
+            remove();
+            last_remove = now + 100ms;
+        }
+        if (e.button == GLFW_MOUSE_BUTTON_RIGHT) {
+            should_place = e.action == GLFW_PRESS;
+            place();
+            last_place = now + 100ms;
+        }
     }
 
     void on_pause() { set_mouse_capture(false); }

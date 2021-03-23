@@ -7,12 +7,16 @@
 
 struct chunk3d {
     enum tile_id {
-        air = 0,
-        stone,
-        grass,
+        none,
         dirt,
-        log,
+        grass,
+        sand,
+        gravel,
+        stone,
+        stone_cracked,
+        stone_cobbled,
         leaves,
+        log,
     };
 
     glm::vec3 pos;
@@ -94,39 +98,65 @@ struct chunk3d {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
         coel::fractal_noise_config noise_conf{
-            .amplitude = 20.0f,
+            .amplitude = 1.0f,
             .persistance = 0.5f,
             .scale = 0.005f,
             .lacunarity = 2.0f,
-            .octaves = 4,
+            .octaves = 8,
         };
+        float density_offset = -0.2f;
 
         for (std::uint32_t z = 0; z < dim.z; ++z) {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    float height = coel::fractal_noise(glm::vec2(pos.x + x, pos.z + z), noise_conf) + 40;
-                    std::uint8_t val = air;
-
-                    if (pos.y + y < height - 4)
+                    float density = coel::fractal_noise(glm::vec3(pos.x + x, pos.y + y, pos.z + z), noise_conf) + density_offset;
+                    density = density + pow(1.0f - 1.0f / dim.y * y, 4.0f) * 2;
+                    std::uint8_t val = none;
+                    if (density > 0.8)
                         val = stone;
-                    else if (pos.y + y < height - 1)
-                        val = dirt;
-                    else if (pos.y + y < height)
-                        val = grass;
-
                     tile = val;
                 }
             }
         }
 
         for (std::uint32_t z = 0; z < dim.z; ++z) {
-            for (std::uint32_t x = 0; x < dim.x; ++x) {
-                float height = fractal_noise(glm::vec2(x, z), noise_conf) + 40;
-                auto &tile = tiles[x + int(height) * dim.x + z * dim.x * dim.y];
-                if (tile == grass)
-                    if (rand() % 200 == 0)
-                        generate_tree(x, int(height + 1), z);
+            for (std::uint32_t y = 0; y < dim.y; ++y) {
+                for (std::uint32_t x = 0; x < dim.x; ++x) {
+                    auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
+                    if (tile == none) {
+                        for (std::uint32_t i = 1; i < 7; ++i) {
+                            if (i <= y) {
+                                auto &replace_tile = tiles[x + (y - i) * dim.x + z * dim.x * dim.y];
+                                if (replace_tile == stone || replace_tile == stone_cracked || replace_tile == stone_cobbled) {
+                                    if (i == 1) {
+                                        replace_tile = grass;
+                                        if (rand() % 200 == 0)
+                                            generate_tree(x, y, z);
+                                    } else {
+                                        if (rand() % (7 - i) == 0)
+                                            replace_tile = gravel;
+                                        else
+                                            replace_tile = dirt;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (tile == stone) {
+                        for (std::uint32_t i = 0; i < 2; ++i) {
+                            if (i <= y) {
+                                auto &replace_tile = tiles[x + (y - i) * dim.x + z * dim.x * dim.y];
+                                if (replace_tile == none) {
+                                    if (rand() % 2 == 0)
+                                        tile = stone_cobbled;
+                                } else if (replace_tile == stone || replace_tile == stone_cracked || replace_tile == stone_cobbled) {
+                                    if (rand() % 4 == 0)
+                                        tile = stone_cracked;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -139,15 +169,29 @@ struct chunk3d {
         float radius = 2.0f + float(rand() % 50) / 100.0f;
         int irad = int(radius);
 
+        bool should_place = true;
+
+        for (int yi = -irad; yi <= irad; ++yi) {
+            glm::uvec3 p = {x, y + yi + 7 - 0.5f * irad, z};
+            if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
+                auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
+                if (tile != none) {
+                    should_place = false;
+                    break;
+                }
+            }
+        }
+
         for (int zi = -irad; zi <= irad; ++zi) {
             for (int yi = -irad; yi <= irad; ++yi) {
                 for (int xi = -irad; xi <= irad; ++xi) {
                     glm::uvec3 p = {x + xi, y + yi + 7 - 0.5f * irad, z + zi};
                     glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y + 7 - 0.5f * irad, z);
-                    if (p.x > 0 && p.x < dim.x && p.y > 0 && p.y < dim.y && p.z > 0 && p.z < dim.z) {
+                    if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
                         if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < radius * radius) {
                             auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
-                            tile = leaves;
+                            if (tile == none)
+                                tile = leaves;
                         }
                     }
                 }

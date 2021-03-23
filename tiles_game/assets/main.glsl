@@ -17,8 +17,7 @@ uniform vec2 u_world_size;
 
 uniform int u_point_count;
 uniform vec2 u_points[100];
-uniform int u_intersection_count;
-uniform vec2 u_intersections[100];
+uniform vec2 u_intersection;
 
 uniform sampler2D u_tilemap_tex;
 uniform usampler2D u_chunk_tex;
@@ -72,13 +71,12 @@ void main() {
 
     float r = 0.08;
 
-    for (int i = 0; i < u_intersection_count; ++i) {
-        vec2 p = u_intersections[i];
-        if (dot(p - uv, p - uv) < r * r)
-            frag_col = vec4(0, float(i % 2) * 0.5 + 0.5, float(i % 2 == 0), 1);
-    }
+
+    vec2 p = u_intersection;
+    if (dot(p - uv, p - uv) < r * r)
+        frag_col = vec4(0.5, 0.2, 1, 1);
     
-    r = 0.04;
+    r = 0.12;
     for (int i = 0; i < u_point_count; ++i) {
         vec2 p = u_points[i];
         if (dot(p - uv, p - uv) < r * r)

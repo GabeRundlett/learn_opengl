@@ -19,9 +19,7 @@ void main() {
     vec2 uv = (gl_FragCoord.xy - vec2((u_frame_dim.x - u_frame_dim.y) * 0.5, 0)) / u_frame_dim.yy;
     const float cross_length = 0.004;
     const float cross_thickness = 0.001;
-    if (
-        uv.x > 0.5-cross_length && uv.x < 0.5+cross_length && uv.y > 0.5-cross_thickness && uv.y < 0.5+cross_thickness || 
-        uv.x > 0.5-cross_thickness && uv.x < 0.5+cross_thickness && uv.y > 0.5-cross_length && uv.y < 0.5+cross_length
-        )
+    if (uv.x > 0.5-cross_length && uv.x < 0.5+cross_length && uv.y > 0.5-cross_thickness && uv.y < 0.5+cross_thickness || 
+        uv.x > 0.5-cross_thickness && uv.x < 0.5+cross_thickness && uv.y > 0.5-cross_length && uv.y < 0.5+cross_length)
         col = vec4(1-col.rgb, 1);
 }

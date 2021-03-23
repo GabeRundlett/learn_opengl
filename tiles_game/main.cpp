@@ -18,7 +18,7 @@ class tiles_game : public coel::application {
         u_point_count,
         u_points,
         u_intersection_count,
-        u_intersections;
+        u_intersection;
 
     opengl::texture2d<> tilemap_tex = opengl::texture2d<>({
         .filepath = "voxel_game/assets/textures/tilemap.png",
@@ -47,8 +47,7 @@ class tiles_game : public coel::application {
         u_chunk_tex = shader.find_uniform("u_chunk_tex");
         u_point_count = shader.find_uniform("u_point_count");
         u_points = shader.find_uniform("u_points");
-        u_intersection_count = shader.find_uniform("u_intersection_count");
-        u_intersections = shader.find_uniform("u_intersections");
+        u_intersection = shader.find_uniform("u_intersection");
 
         chunk.regenerate();
     }
@@ -65,18 +64,16 @@ class tiles_game : public coel::application {
         opengl::shader_program::send(u_mouse_pos, world_mouse_pos);
         opengl::shader_program::send(u_world_size, glm::vec2(chunk.dim));
 
-        tile_chunk::raycast_info ray{
+        tile_chunk::raycast_config raycast_conf{
             .origin = points[0].pos,
             .dir = points[1].pos - points[0].pos,
-
             .max_iter = 100,
-            .max_dist = glm::length(points[1].pos - points[0].pos),
         };
-        auto intersections = chunk.raycast(ray);
 
-        auto intersection_count = std::min((int)intersections.size(), 100);
-        opengl::shader_program::send(u_intersection_count, intersection_count);
-        opengl::shader_program::send(u_intersections, intersections.data(), intersection_count);
+        auto raycast = chunk.raycast(raycast_conf);
+        auto surface = chunk.get_surface_details(raycast_conf, raycast);
+
+        opengl::shader_program::send(u_intersection, surface.pos);
 
         auto point_count = std::min((int)points.size(), 100);
         std::vector<glm::vec2> point_positions(point_count);

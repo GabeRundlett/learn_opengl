@@ -50,104 +50,110 @@ struct tile_chunk {
         }
     }
 
-    struct surface_info {
-        glm::vec2 pos, nrm;
-        tile_id *tile;
-    };
-
-    struct raycast_info {
-        glm::vec2 origin, dir;
-        std::uint32_t max_iter;
-        float max_dist;
-        std::uint32_t steps;
-        bool hit_surface;
-    };
-
     void regenerate() {
         for (int yi = 0; yi < dim.y; ++yi) {
             for (int xi = 0; xi < dim.x; ++xi) {
                 auto &tile = tiles[xi + yi * dim.x];
-                tile = tile_id(0);
+                tile = tile_id(xi == 0 || yi == 0 || xi == dim.x - 1 || yi == dim.y - 1);
             }
         }
 
         recalculate_tex();
     }
 
-    std::vector<glm::vec2> raycast(raycast_info &ray) {
-        std::vector<glm::vec2> intersections;
+    struct raycast_config {
+        glm::vec2 origin, dir;
+        std::uint32_t max_iter;
+        float max_dist;
+    };
 
-        ray.hit_surface = false;
-        ray.steps = 0;
+    struct raycast_result {
+        glm::ivec2 tile_index;
+        std::uint32_t total_steps;
+        bool hit_surface, is_vertical;
+    };
 
-        glm::vec2 current_pos = ray.origin;
-        glm::ivec2 ray_step{int(ray.dir.x > 0), int(ray.dir.y > 0)};
-        glm::ivec2 ray_origin_i{int(std::floor(ray.origin.x)), int(std::floor(ray.origin.y))};
-        glm::vec2 ray_d = glm::vec2(ray_origin_i + ray_step) - ray.origin;
-        ray_step = ray_step * 2 - 1;
+    raycast_result raycast(const raycast_config &config) {
+        using namespace glm;
 
-        // intersections.push_back(glm::vec2(ray_origin_i) + glm::vec2(0.5, 0.5));
-        // intersections.push_back(current_pos);
-        // if (get_tile(current_pos) != tile_id::none) {
-        //     ray.hit_surface = true;
-        //     return intersections;
-        // }
+        raycast_result result;
 
-        float slope_xy = ray.dir.y / ray.dir.x;
-        float slope_yx = ray.dir.x / ray.dir.y;
+        result.tile_index = ivec2(config.origin);
+        result.total_steps = 0;
+        result.hit_surface = false;
 
-        glm::vec2 to_travel_x{ray_d.x, slope_xy * ray_d.x};
-        glm::vec2 to_travel_y{slope_yx * ray_d.y, ray_d.y};
+        vec2 delta_dist{
+            config.dir.y == 0 ? 0 : (config.dir.x == 0 ? 1 : std::abs(1.0f / config.dir.x)),
+            config.dir.x == 0 ? 0 : (config.dir.y == 0 ? 1 : std::abs(1.0f / config.dir.y)),
+        };
 
-        std::uint32_t iter = 0;
-
-        while (ray.steps < ray.max_iter && iter < ray.max_iter) {
-            while (ray.steps < ray.max_iter && to_travel_x.x * ray_step.x <= to_travel_y.x * ray_step.x) {
-                ++ray.steps;
-                current_pos += to_travel_x;
-                const auto del = current_pos - ray.origin;
-                if (del.x * del.x + del.y * del.y > ray.max_dist * ray.max_dist)
-                    return intersections;
-
-                auto test_pos = get_tile_coord(current_pos + glm::vec2(ray_step.x * 0.0001, 0));
-                auto tile = &get_tile(test_pos);
-
-                intersections.push_back(glm::vec2(test_pos) + glm::vec2(0.5, 0.5));
-                intersections.push_back(current_pos);
-
-                if (*tile != tile_id::none) {
-                    ray.hit_surface = true;
-                    return intersections;
-                }
-
-                to_travel_y -= to_travel_x;
-                to_travel_x = {float(ray_step.x), slope_xy * ray_step.x};
-            }
-            while (ray.steps < ray.max_iter && to_travel_y.y * ray_step.y <= to_travel_x.y * ray_step.y) {
-                ++ray.steps;
-                current_pos += to_travel_y;
-                const auto del = current_pos - ray.origin;
-                if (del.x * del.x + del.y * del.y > ray.max_dist * ray.max_dist)
-                    return intersections;
-
-                auto test_pos = get_tile_coord(current_pos + glm::vec2(0, ray_step.y * 0.001));
-                auto tile = &get_tile(test_pos);
-
-                intersections.push_back(glm::vec2(test_pos) + glm::vec2(0.5, 0.5));
-                intersections.push_back(current_pos);
-
-                if (*tile != tile_id::none) {
-                    ray.hit_surface = true;
-                    return intersections;
-                }
-
-                to_travel_x -= to_travel_y;
-                to_travel_y = {slope_yx * ray_step.y, float(ray_step.y)};
-            }
-            ++iter;
+        vec2 to_side_dist;
+        ivec2 ray_step;
+        if (config.dir.x < 0) {
+            ray_step.x = -1, to_side_dist.x = (config.origin.x - result.tile_index.x) * delta_dist.x;
+        } else {
+            ray_step.x = 1, to_side_dist.x = (result.tile_index.x + 1.0f - config.origin.x) * delta_dist.x;
+        }
+        if (config.dir.y < 0) {
+            ray_step.y = -1, to_side_dist.y = (config.origin.y - result.tile_index.y) * delta_dist.y;
+        } else {
+            ray_step.y = 1, to_side_dist.y = (result.tile_index.y + 1.0f - config.origin.y) * delta_dist.y;
         }
 
-        return intersections;
+        while (result.total_steps < config.max_iter) {
+            if (to_side_dist.x < to_side_dist.y) {
+                to_side_dist.x += delta_dist.x;
+                result.tile_index.x += ray_step.x;
+                result.is_vertical = false;
+            } else {
+                to_side_dist.y += delta_dist.y;
+                result.tile_index.y += ray_step.y;
+                result.is_vertical = true;
+            }
+
+            if (get_tile(result.tile_index) != tile_id::none) {
+                result.hit_surface = true;
+                break;
+            }
+
+            ++result.total_steps;
+        }
+
+        return result;
+    }
+
+    struct surface_details {
+        glm::vec2 pos, nrm;
+    };
+
+    surface_details get_surface_details(const raycast_config &config, const raycast_result &result) {
+        using namespace glm;
+
+        surface_details surface;
+        surface.pos = result.tile_index;
+
+        float slope_xy = config.dir.x / config.dir.y;
+        float slope_yx = config.dir.y / config.dir.x;
+
+        if (result.is_vertical) {
+            if (config.dir.y < 0) {
+                surface.pos.y += 1;
+                surface.nrm = vec2(0, 1);
+            } else {
+                surface.nrm = vec2(0, -1);
+            }
+            surface.pos = vec2(config.origin.x + (surface.pos.y - config.origin.y) * slope_xy, surface.pos.y);
+        } else {
+            if (config.dir.x < 0) {
+                surface.pos.x += 1;
+                surface.nrm = vec2(1, 0);
+            } else {
+                surface.nrm = vec2(-1, 0);
+            }
+            surface.pos = vec2(surface.pos.x, config.origin.y + (surface.pos.x - config.origin.x) * slope_yx);
+        }
+
+        return surface;
     }
 
     void recalculate_tex() {
@@ -166,6 +172,10 @@ struct tile_chunk {
 
     tile_id &get_tile(glm::vec2 p) {
         auto coord = get_tile_coord(p);
+        return tiles[coord.x + coord.y * dim.x];
+    }
+
+    tile_id &get_tile(glm::ivec2 coord) {
         return tiles[coord.x + coord.y * dim.x];
     }
 };
