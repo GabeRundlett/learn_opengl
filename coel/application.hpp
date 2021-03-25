@@ -4,9 +4,9 @@
 #include <coel/opengl/core.hpp>
 #include <coel/opengl/renderers/ui_batch.hpp>
 #include <coel/opengl/renderers/text_batch.hpp>
+#include <coel/exception.hpp>
 
 #include <fmt/core.h>
-
 #include <thread>
 
 namespace coel {
@@ -21,19 +21,13 @@ namespace coel {
                 glfwInit();
                 window_ptr = glfwCreateWindow(frame_dim.x, frame_dim.y, title.c_str(), nullptr, nullptr);
 
-                if (window_ptr == nullptr) {
-                    std::cout << "failed to create glfw window\n";
-                    return;
-                }
+                if (window_ptr == nullptr)
+                    throw coel::exception("Failed to create GLFW window");
 
                 glfwMakeContextCurrent(window_ptr);
 
-                if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-                    std::cout << "failed to load opengl\n";
-                    glfwDestroyWindow(window_ptr);
-                    window_ptr = nullptr;
-                    return;
-                }
+                if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+                    throw coel::exception("Failed to create GLFW window");
             }
             ~glfw_app() {
                 glfwDestroyWindow(window_ptr);

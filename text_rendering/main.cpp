@@ -1,3 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <coel/application.hpp>
 
 #include <ft2build.h>
@@ -120,7 +123,7 @@ class freetype_typeface {
     }
 };
 
-class game_app : public coel::application {
+class my_app : public coel::application {
   public:
     freetype_typeface arial = freetype_typeface("C:/Windows/Fonts/consola.ttf", 16);
 
@@ -137,7 +140,7 @@ class game_app : public coel::application {
     opengl::vertex_buffer vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
     opengl::shader_program shader = opengl::shader_program({.filepath = "text_rendering/assets/quad_vert.glsl"}, {.filepath = "text_rendering/assets/quad_frag.glsl"});
 
-    game_app() : coel::application({400, 400}, "text rendering") {
+    my_app() : coel::application({400, 400}, "text rendering") {
         use_raw_mouse(true);
         on_char('a');
 
@@ -167,11 +170,13 @@ class game_app : public coel::application {
     }
 };
 
-int main() {
-    game_app game;
+int main() try {
+    my_app game;
     if (!game)
         return -1;
     game.resize();
     while (game.update()) {
     }
+} catch (const coel::exception &e) {
+    MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
 }

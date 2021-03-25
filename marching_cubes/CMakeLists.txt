@@ -1,4 +1,4 @@
-project(tiles_game)
+project(marching_cubes)
 
 add_executable(${PROJECT_NAME} "main.cpp")
 target_link_libraries(${PROJECT_NAME} PUBLIC coel)

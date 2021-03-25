@@ -25,8 +25,8 @@ const uint tile_id_stone_cobbled = 7u;
 const uint tile_id_leaves = 8u;
 const uint tile_id_log = 9u;
 
-const vec3 sun_col = vec3(1, 0.8, 0.7) * 20;
-const vec3 sky_col = vec3(2.81f, 2.01f, 5.32f);
+const vec3 sun_col = vec3(1, 0.6, 0.45) * 20;
+const vec3 sky_col = vec3(1.81f, 2.01f, 5.32f);
 const vec3 sun_dir = normalize(vec3(-2, -4, -1.3));
 
 vec2 get_tex_px(uint tile_id) {
@@ -117,25 +117,33 @@ vec2 get_tex_nz(uint tile_id) {
 struct raycast_config {
     vec3 origin, dir;
     uint max_iter;
+    int step_scale;
     float max_dist;
 };
 
 struct raycast_result {
     ivec3 tile_index;
     uint total_steps;
-    bool hit_surface, is_y, is_z;
+    bool hit_surface, outside_bounds, is_y, is_z;
 };
 
 uint get_tile(ivec3 coord) {
     return texture(u_tiles_tex, vec3(coord) / u_cube_dim).r;
 }
 
+bool is_contained(ivec3 coord, int margin) {
+    return (coord.x >= -margin && coord.x < u_cube_dim.x + margin &&
+            coord.y >= -margin && coord.y < u_cube_dim.y + margin &&
+            coord.z >= -margin && coord.z < u_cube_dim.z + margin);
+}
+
 raycast_result raycast(in raycast_config config) {
     raycast_result result;
 
-    result.tile_index = ivec3(config.origin);
+    result.tile_index = ivec3(config.origin / config.step_scale) * config.step_scale;
     result.total_steps = 0u;
     result.hit_surface = false;
+    result.outside_bounds = false;
 
     float delta_dist_xy = config.dir.y == 0 ? 0 : (config.dir.x == 0 ? 1 : abs(1.0f / config.dir.x));
     float delta_dist_xz = config.dir.z == 0 ? 0 : (config.dir.x == 0 ? 1 : abs(1.0f / config.dir.x));
@@ -186,45 +194,47 @@ raycast_result raycast(in raycast_config config) {
     }
 
     while (result.total_steps < config.max_iter) {
-        if (get_tile(result.tile_index) != tile_id_none) {
-            result.hit_surface = true;
-            break;
-        }
+        if (result.total_steps % config.step_scale == 0) {
+            if (get_tile(result.tile_index) != tile_id_none) {
+                result.hit_surface = result.total_steps != 0;
+                break;
+            }
 
-        if (result.tile_index.x < 0 || result.tile_index.x > u_cube_dim.x ||
-            result.tile_index.y < 0 || result.tile_index.y > u_cube_dim.y ||
-            result.tile_index.z < 0 || result.tile_index.z > u_cube_dim.z) {
-            break;
-        }
-
-        if (to_side_dist_xy < to_side_dist_yx) {
-            if (to_side_dist_xz < to_side_dist_zx) {
-                to_side_dist_xy += delta_dist_xy;
-                to_side_dist_xz += delta_dist_xz;
-                result.tile_index.x += ray_step.x;
-                result.is_y = false;
-                result.is_z = false;
+            if (to_side_dist_xy < to_side_dist_yx) {
+                if (to_side_dist_xz < to_side_dist_zx) {
+                    to_side_dist_xy += delta_dist_xy * config.step_scale;
+                    to_side_dist_xz += delta_dist_xz * config.step_scale;
+                    result.tile_index.x += ray_step.x * config.step_scale;
+                    result.is_y = false;
+                    result.is_z = false;
+                } else {
+                    to_side_dist_zx += delta_dist_zx * config.step_scale;
+                    to_side_dist_zy += delta_dist_zy * config.step_scale;
+                    result.tile_index.z += ray_step.z * config.step_scale;
+                    result.is_y = false;
+                    result.is_z = true;
+                }
             } else {
-                to_side_dist_zx += delta_dist_zx;
-                to_side_dist_zy += delta_dist_zy;
-                result.tile_index.z += ray_step.z;
-                result.is_y = false;
-                result.is_z = true;
+                if (to_side_dist_yz < to_side_dist_zy) {
+                    to_side_dist_yx += delta_dist_yx * config.step_scale;
+                    to_side_dist_yz += delta_dist_yz * config.step_scale;
+                    result.tile_index.y += ray_step.y * config.step_scale;
+                    result.is_y = true;
+                    result.is_z = false;
+                } else {
+                    to_side_dist_zx += delta_dist_zx * config.step_scale;
+                    to_side_dist_zy += delta_dist_zy * config.step_scale;
+                    result.tile_index.z += ray_step.z * config.step_scale;
+                    result.is_y = false;
+                    result.is_z = true;
+                }
+            }
+            if (!is_contained(result.tile_index, 2)) {
+                result.outside_bounds = true;
+                break;
             }
         } else {
-            if (to_side_dist_yz < to_side_dist_zy) {
-                to_side_dist_yx += delta_dist_yx;
-                to_side_dist_yz += delta_dist_yz;
-                result.tile_index.y += ray_step.y;
-                result.is_y = true;
-                result.is_z = false;
-            } else {
-                to_side_dist_zx += delta_dist_zx;
-                to_side_dist_zy += delta_dist_zy;
-                result.tile_index.z += ray_step.z;
-                result.is_y = false;
-                result.is_z = true;
-            }
+
         }
 
         ++result.total_steps;
@@ -296,6 +306,7 @@ surface_details get_surface_details(in raycast_config config, in raycast_result 
         surface.face_uv = vec2(surface.uvw.z, 1 - surface.uvw.y);
     }
     
+    surface.face_uv = fract(surface.face_uv);
     surface.tile_uv = surface.face_uv;
     surface.tile_id = get_tile(result.tile_index);
 
@@ -339,27 +350,37 @@ vec3 random_nrm(vec3 nrm, vec3 seed, float variance) {
 }
 
 void main() {
-    vec3 cam_pos = u_cam_pos + vec3(u_cube_dim) * 0.5;
+    vec3 cam_pos = u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos;
     vec3 cam_diff = (v_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos) - cam_pos;
-    if (cam_pos.x < 0 || cam_pos.x > u_cube_dim.x ||
-        cam_pos.y < 0 || cam_pos.y > u_cube_dim.y ||
-        cam_pos.z < 0 || cam_pos.z > u_cube_dim.z) {
-        cam_pos += cam_diff;
-    }
+    vec3 cam_dir = normalize(cam_diff);
 
     raycast_config camray_conf;
-    camray_conf.origin = cam_pos,
-    camray_conf.dir = normalize(cam_diff),
-    camray_conf.max_iter = 128u;
+    camray_conf.origin = cam_pos;
+
+    if (!is_contained(ivec3(cam_pos), 0))
+        camray_conf.origin += cam_diff - cam_dir * 0.0001;
+
+    camray_conf.dir = cam_dir;
+    camray_conf.max_iter = 32u * 3;
+    camray_conf.step_scale = 1 << 0;
 
     raycast_result camray = raycast(camray_conf);
+
+    if (!camray.hit_surface) {
+        discard;
+    }
     surface_details surface = get_surface_details(camray_conf, camray);
 
-    // raycast_config sunray_conf;
-    // sunray_conf.origin = surface.pos,
-    // sunray_conf.dir = -sun_dir,
-    // sunray_conf.max_iter = 256u;
-    // raycast_result sunray = raycast(sunray_conf);
+    raycast_config sunray_conf;
+    sunray_conf.origin = surface.pos + surface.nrm * 0.0001;
+    sunray_conf.dir = -sun_dir;
+    sunray_conf.max_iter = 32u * 2;
+    sunray_conf.step_scale = 1;
+    raycast_result sunray = raycast(sunray_conf);
 
-    frag_col = vec4(surface.col * sky_col * sun_col * clamp(dot(-sun_dir, surface.nrm), 0.2f, 1.0f), 1);
+    float depth = length(u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos - surface.pos);
+    gl_FragDepth = 1 - 2 / (depth + 1);
+
+    vec3 diffuse = sky_col * clamp(dot(vec3(0, 1, 0), surface.nrm) * 0.5 + 0.5, 0, 1) + sun_col * (clamp(dot(-sun_dir, surface.nrm), 0, 1) * float(!sunray.hit_surface));
+    frag_col = vec4(surface.col * diffuse, 1);
 }

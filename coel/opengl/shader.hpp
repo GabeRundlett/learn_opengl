@@ -2,15 +2,15 @@
 
 #include <glad/glad.h>
 
-#include <fstream>
-#include <iostream>
-
 #include <string>
-#include <iomanip>
-#include <regex>
 #include <sstream>
 #include <string_view>
+#include <regex>
+#include <fstream>
 #include <filesystem>
+
+#include <fmt/core.h>
+#include <coel/exception.hpp>
 
 namespace opengl {
     namespace detail {
@@ -53,7 +53,8 @@ namespace opengl {
                     }
                 }
             } else {
-                std::cout << "failed to open file\n";
+                auto message = fmt::format("Failed to open custom shader file - {}", filepath.string());
+                throw coel::exception(message.c_str());
             }
             return result_vec;
         }
@@ -69,14 +70,15 @@ namespace opengl {
       private:
         void create_from_source(const char *const source_str) {
             int success;
-            char info_log[512];
+            std::string info_log;
             glShaderSource(id, 1, &source_str, nullptr);
             glCompileShader(id);
             glGetShaderiv(id, GL_COMPILE_STATUS, &success);
             if (!success) {
-                glGetShaderInfoLog(id, sizeof info_log, nullptr, info_log);
-                std::cout << "Error: shader compilation failed\n"
-                          << info_log << "\n";
+                info_log.resize(512);
+                glGetShaderInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
+                auto message = fmt::format("Failed to compile shader\n{}", info_log);
+                throw coel::exception(message.c_str());
             }
         }
 
@@ -99,8 +101,8 @@ namespace opengl {
                     create_from_source(source_str.c_str());
                     source_file.close();
                 } else {
-                    std::cout << "Error: Failed to open shader file\n"
-                              << "  - " << conf.filepath << "\n";
+                    auto message = fmt::format("Failed to open shader file - {}", conf.filepath);
+                    throw coel::exception(message.c_str());
                 }
             } else if (conf.source_str != nullptr) {
                 create_from_source(conf.source_str);
@@ -139,15 +141,16 @@ namespace opengl {
             shader<GL_FRAGMENT_SHADER> frag_shader(frag_shader_conf);
 
             int success;
-            char info_log[512];
+            std::string info_log;
             glAttachShader(id, vert_shader.id);
             glAttachShader(id, frag_shader.id);
             glLinkProgram(id);
             glGetProgramiv(id, GL_LINK_STATUS, &success);
             if (!success) {
-                glGetShaderInfoLog(id, sizeof info_log, nullptr, info_log);
-                std::cout << "Error: shader linkage failed\n"
-                          << info_log << "\n";
+                info_log.resize(512);
+                glGetShaderInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
+                auto message = fmt::format("Failed to link shader program\n{}", info_log);
+                throw coel::exception(message.c_str());
             }
 
             bind();
@@ -173,15 +176,16 @@ namespace opengl {
             });
 
             int success;
-            char info_log[512];
+            std::string info_log;
             glAttachShader(id, vert_shader.id);
             glAttachShader(id, frag_shader.id);
             glLinkProgram(id);
             glGetProgramiv(id, GL_LINK_STATUS, &success);
             if (!success) {
-                glGetShaderInfoLog(id, sizeof info_log, nullptr, info_log);
-                std::cout << "Error: shader linkage failed\n"
-                          << info_log << "\n";
+                info_log.resize(512);
+                glGetShaderInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
+                auto message = fmt::format("Failed to link shader program\n{}", info_log);
+                throw coel::exception(message.c_str());
             }
 
             bind();

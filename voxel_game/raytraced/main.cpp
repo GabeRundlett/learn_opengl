@@ -1,3 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <coel/application.hpp>
 #include <coel/game/player.hpp>
 #include <coel/opengl/renderers/quad.hpp>
@@ -8,8 +11,8 @@ using namespace std::chrono_literals;
 
 class voxel_game : public coel::application {
     opengl::shader_program frame_shader = opengl::shader_program(
-        {.filepath = "voxel_game/assets/shaders/frame_vert.glsl"},
-        {.filepath = "voxel_game/assets/shaders/frame_frag.glsl"});
+        {.filepath = "voxel_game/raytraced/assets/shaders/frame_vert.glsl"},
+        {.filepath = "voxel_game/raytraced/assets/shaders/frame_frag.glsl"});
     opengl::shader_uniform
         u_scene_frame_tex,
         u_scene_frame_dim;
@@ -19,8 +22,8 @@ class voxel_game : public coel::application {
     opengl::renderer::quad quad;
 
     opengl::shader_program tile_shader = opengl::shader_program(
-        {.filepath = "voxel_game/assets/shaders/tile_vert.glsl"},
-        {.filepath = "voxel_game/assets/shaders/tile_frag.glsl"});
+        {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
+        {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
 
     opengl::shader_uniform
         u_view_mat,
@@ -35,9 +38,7 @@ class voxel_game : public coel::application {
 
     coel::player3d player;
 
-    std::vector<chunk3d *> chunks = {
-        new chunk3d({0, 0, 0}),
-    };
+    std::vector<chunk3d *> chunks = {};
 
     chunk3d::raycast_information tile_pick_ray;
     bool should_remove = false, should_place = false;
@@ -78,8 +79,18 @@ class voxel_game : public coel::application {
 
         shader_init();
 
-        player.cam.fov = glm::radians(90.0f);
+        player.cam.fov = glm::radians(70.0f);
         player.cam.update_proj();
+        player.move_sprint_mult = 16;
+
+        int chunk_radius = 8;
+        for (int zi = -chunk_radius; zi < chunk_radius; ++zi) {
+            for (int yi = -chunk_radius / 4; yi < chunk_radius / 4; ++yi) {
+                for (int xi = -chunk_radius; xi < chunk_radius; ++xi) {
+                    chunks.emplace_back(new chunk3d(glm::vec3(xi, yi, zi)));
+                }
+            }
+        }
     }
 
     ~voxel_game() {
@@ -90,13 +101,11 @@ class voxel_game : public coel::application {
     void place() {
         for (auto &chunk : chunks) {
             chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
-
             if (tile_pick_ray.hit) {
                 tile_pick_ray.hit_info.pos -= tile_pick_ray.hit_info.nrm * 0.5f;
                 opengl::shader_program::send(u_selected_tile_pos, tile_pick_ray.hit_info.pos);
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
-
             if (should_place && tile_pick_ray.hit) {
                 float radius = 1;
                 last_place = now;
@@ -104,10 +113,11 @@ class voxel_game : public coel::application {
                     for (float yi = -radius; yi < radius; ++yi) {
                         for (float xi = -radius; xi < radius; ++xi) {
                             if (xi * xi + yi * yi + zi * zi < radius * radius)
-                                chunk->get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = 1;
+                                chunk->get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = chunk3d::dirt;
                         }
                     }
                 }
+                chunk->invalidate();
             }
         }
     }
@@ -115,28 +125,24 @@ class voxel_game : public coel::application {
     void remove() {
         for (auto &chunk : chunks) {
             chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
-
             if (tile_pick_ray.hit) {
                 tile_pick_ray.hit_info.pos -= tile_pick_ray.hit_info.nrm * 0.5f;
                 opengl::shader_program::send(u_selected_tile_pos, tile_pick_ray.hit_info.pos);
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
-
             if (should_remove && tile_pick_ray.hit) {
-                last_remove = now;
                 float radius = 1;
+                last_remove = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
                         for (float xi = -radius; xi < radius; ++xi) {
                             if (xi * xi + yi * yi + zi * zi < radius * radius)
-                                chunk->get_tile(tile_pick_ray.hit_info.pos + vec3(xi, yi, zi)) = 0;
+                                chunk->get_tile(tile_pick_ray.hit_info.pos + vec3(xi, yi, zi)) = chunk3d::none;
                         }
                     }
                 }
+                chunk->invalidate();
             }
-
-            if (should_remove || should_place)
-                chunk->update();
         }
     }
 
@@ -152,13 +158,16 @@ class voxel_game : public coel::application {
 
         if (now - last_remove > 0.02s)
             remove();
+
+        for (auto &chunk : chunks)
+            chunk->update();
     }
 
     void on_draw() {
         scene_frame.bind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
 
-        glClearColor(0, 0, 0, 1.0f);
+        glClearColor(1.81f, 2.01f, 5.32f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
@@ -199,8 +208,8 @@ class voxel_game : public coel::application {
             switch (e.key) {
             case GLFW_KEY_R:
                 tile_shader = opengl::shader_program(
-                    {.filepath = "voxel_game/assets/shaders/tile_vert.glsl"},
-                    {.filepath = "voxel_game/assets/shaders/tile_frag.glsl"});
+                    {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
+                    {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
                 shader_init();
                 break;
             }
@@ -256,11 +265,13 @@ class voxel_game : public coel::application {
     void on_resume() { set_mouse_capture(true); }
 };
 
-int main() {
+int main() try {
     voxel_game game;
     if (!game)
         return -1;
     game.resize();
     while (game.update()) {
     }
+} catch (const coel::exception &e) {
+    MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
 }

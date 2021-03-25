@@ -175,7 +175,7 @@ class my_app : public coel::application {
             for (int yi = 0; yi < 4; ++yi) {
                 for (int xi = 0; xi < 4; ++xi)
                     fmt::print("{:>10} ", proj_inv[yi][xi]);
-                std::cout << "\n";
+                fmt::print("\n");
             }
             second.cam.proj_mat = glm::inverse(proj_inv);
             opengl::shader_program::send(u_second_proj_mat, second.cam.proj_mat);

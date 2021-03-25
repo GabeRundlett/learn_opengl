@@ -6,8 +6,8 @@ out vec4 col;
 uniform sampler2D u_frame_col_tex;
 uniform vec2 u_frame_dim;
 
-float u_gamma = 1.8f;
-float u_exposure = 0.05f;
+float u_gamma = 1.2f;
+float u_exposure = 0.1f;
 
 void main() {
     vec3 hdr_color = texture(u_frame_col_tex, v_tex).rgb;

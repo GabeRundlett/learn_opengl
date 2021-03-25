@@ -1,8 +1,7 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <iostream>
-
+#include <coel/exception.hpp>
 #include <coel/opengl/texture.hpp>
 
 namespace opengl {
@@ -88,7 +87,7 @@ namespace opengl {
         void verify() {
             bind();
             if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-                std::cout << "failed to complete creation of framebuffer\n";
+                throw coel::exception("Failed to complete framebuffer creation");
         }
 
         inline void bind() const {

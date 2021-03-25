@@ -5,6 +5,9 @@
 #include <stb_image.h>
 #include <glm/glm.hpp>
 
+#include <fmt/core.h>
+#include <coel/exception.hpp>
+
 namespace opengl {
     template <GLenum target, typename data_t, typename dim_t>
     struct texture {
@@ -59,9 +62,8 @@ namespace opengl {
                     stbi_set_flip_vertically_on_load(conf.flip_vertically);
                     std::uint8_t *data = stbi_load(conf.filepath, &width, &height, &num_channels, 0);
                     if (data == nullptr) {
-                        std::cout << "Failed to open texture\n"
-                                  << " - " << conf.filepath << "\n";
-                        return;
+                        auto message_str = fmt::format("Failed to open texture - {}", conf.filepath);
+                        throw coel::exception(message_str.c_str());
                     }
                     unsigned int format;
                     switch (num_channels) {

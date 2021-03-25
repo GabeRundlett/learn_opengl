@@ -1,4 +1,5 @@
 #coel_shader[type: vert, name: "my vert shader"]
+#version 440
 
 layout(location = 0) in vec2 a_pos;
 
@@ -7,6 +8,7 @@ void main() {
 }
 
 #coel_shader[type: frag, name: "my frag shader"]
+#version 440
 
 out vec4 frag_col;
 

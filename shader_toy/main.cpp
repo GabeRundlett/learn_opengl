@@ -1,3 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <coel/application.hpp>
 #include <coel/opengl/renderers/quad.hpp>
 
@@ -34,11 +37,13 @@ class my_app : public coel::application {
     }
 };
 
-int main() {
+int main() try {
     my_app game;
     if (!game)
         return -1;
     game.resize();
     while (game.update()) {
     }
+} catch (const coel::exception &e) {
+    MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
 }

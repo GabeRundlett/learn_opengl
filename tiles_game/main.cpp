@@ -1,9 +1,12 @@
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <coel/application.hpp>
 #include <coel/opengl/renderers/quad.hpp>
 
-#include "tiles.hpp"
-
 #include <algorithm>
+
+#include "tiles.hpp"
 
 class tiles_game : public coel::application {
     opengl::renderer::quad quad;
@@ -140,11 +143,13 @@ class tiles_game : public coel::application {
     }
 };
 
-int main() {
+int main() try {
     tiles_game game;
     if (!game)
         return -1;
     game.resize();
     while (game.update()) {
     }
+} catch (const coel::exception &e) {
+    MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
 }

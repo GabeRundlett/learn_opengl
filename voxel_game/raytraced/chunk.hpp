@@ -5,6 +5,8 @@
 
 #include <KHR/khrplatform.h>
 
+using namespace std::chrono_literals;
+
 struct chunk3d {
     enum tile_id {
         none,
@@ -74,7 +76,7 @@ struct chunk3d {
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0]));
 
-    static inline constexpr glm::uvec3 dim = {128, 128, 128};
+    static inline constexpr glm::uvec3 dim = {32, 32, 32};
     std::vector<std::uint32_t> tiles = std::vector<std::uint32_t>(dim.x * dim.y * dim.z);
     opengl::texture3d<std::uint32_t> tiles_tex = opengl::texture3d<std::uint32_t>({
         .data{
@@ -89,12 +91,15 @@ struct chunk3d {
     });
 
     opengl::texture2d<> tilemap_tex = opengl::texture2d<>({
-        .filepath = "voxel_game/assets/textures/tilemap.png",
+        .filepath = "voxel_game/raytraced/assets/textures/tilemap.png",
         .gl_format = GL_RGBA,
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
     });
 
-    chunk3d(glm::vec3 pos) : pos(pos) {
+    coel::clock::time_point last_update;
+    bool valid = false;
+
+    chunk3d(glm::vec3 chunk_pos) : pos(chunk_pos * glm::vec3(dim)) {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
         coel::fractal_noise_config noise_conf{
@@ -104,16 +109,17 @@ struct chunk3d {
             .lacunarity = 2.0f,
             .octaves = 8,
         };
-        float density_offset = -0.2f;
 
         for (std::uint32_t z = 0; z < dim.z; ++z) {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    float density = coel::fractal_noise(glm::vec3(pos.x + x, pos.y + y, pos.z + z), noise_conf) + density_offset;
-                    density = density + pow(1.0f - 1.0f / dim.y * y, 4.0f) * 2;
+                    glm::vec3 p = pos + glm::vec3(x, y, z);
+                    float density = coel::fractal_noise(p, noise_conf) - p.y / dim.y;
+                    // density = density - pow(1.0f / dim.y * (y + pos.y), 4.0f) * 2;
+                    // float density = p.x + p.y + p.z;
                     std::uint8_t val = none;
-                    if (density > 0.8)
+                    if (density > 0)
                         val = stone;
                     tile = val;
                 }
@@ -134,7 +140,7 @@ struct chunk3d {
                                         if (rand() % 200 == 0)
                                             generate_tree(x, y, z);
                                     } else {
-                                        if (rand() % (7 - i) == 0)
+                                        if (rand() % (15 - i) == 0)
                                             replace_tile = gravel;
                                         else
                                             replace_tile = dirt;
@@ -160,7 +166,7 @@ struct chunk3d {
             }
         }
 
-        update();
+        last_update = coel::clock::now();
     }
 
     void generate_tree(int x, int y, int z) {
@@ -207,6 +213,84 @@ struct chunk3d {
         }
     }
 
+    template <typename precision_t, std::size_t N>
+    struct raycast_config {
+        std::array<precision_t, N> origin;
+        std::array<precision_t, N> direction;
+        unsigned int max_iter = 1000u;
+    };
+    template <typename precision_t, std::size_t N>
+    struct raycast_result {
+        std::array<int, N> tile_index;
+        unsigned int total_steps = 0ul, current_edge = 0ul;
+        bool hit_surface = false;
+    };
+    static inline constexpr auto abs(auto x) {
+        if (x < 0)
+            return -x;
+        return x;
+    }
+    template <std::size_t N>
+    bool is_tile_blocking(std::array<int, N> p) {
+        auto t = tiles[p[0] + p[1] * dim.x + p[2] * dim.x * dim.y];
+        return t != none;
+    }
+    template <std::size_t N>
+    bool in_bounds(std::array<int, N> p) {
+        return p[0] >= 0 && p[0] < (int)dim.x &&
+               p[1] >= 0 && p[1] < (int)dim.y &&
+               p[2] >= 0 && p[2] < (int)dim.z;
+    }
+
+    template <typename precision_t, std::size_t N>
+    raycast_result<precision_t, N> raycast(const raycast_config<precision_t, N> &config) {
+        raycast_result<precision_t, N> result;
+        for (auto i = 0ul; i < N; ++i)
+            result.tile_index[i] = static_cast<int>(config.origin[i]);
+        std::array<std::array<precision_t, N - 1>, N> delta_dist;
+        std::array<std::array<precision_t, N - 1>, N> to_side_dist;
+        std::array<int, N> ray_step;
+        for (auto i = 0ul; i < N; ++i) {
+            for (auto j = 0ul; j < N - 1; ++j) {
+                const auto n = j + (i <= j);
+                delta_dist[i][j] =
+                    config.direction[n] == 0   ? 0
+                    : config.direction[i] == 0 ? 1
+                                               : abs(1 / config.direction[i]);
+                if (config.direction[i] < precision_t(0)) {
+                    ray_step[i] = -1;
+                    to_side_dist[i][j] = config.origin[i] - result.tile_index[i];
+                } else {
+                    ray_step[i] = 1;
+                    to_side_dist[i][j] = config.origin[i] + precision_t(1) - result.tile_index[i];
+                }
+                to_side_dist[i][j] *= delta_dist[i][j];
+            }
+        }
+        while (result.total_steps < config.max_iter) {
+            if (not in_bounds(result.tile_index))
+                break;
+            if (is_tile_blocking(result.tile_index)) {
+                result.hit_surface = true;
+                break;
+            }
+            auto current_edge = 0ul;
+            for (auto i = 1ul; i < N; ++i) {
+                if (to_side_dist[current_edge][i - (current_edge <= i)] >
+                    to_side_dist[i][current_edge - (i <= current_edge)])
+                    current_edge = i;
+            }
+            for (auto i = 0ul; i < N - 1; ++i) {
+                const auto n = i + (current_edge <= i);
+                to_side_dist[current_edge][n] += delta_dist[current_edge][n];
+            }
+            result.tile_index[current_edge] += ray_step[current_edge];
+            ++result.total_steps;
+        }
+
+        return result;
+    }
+
     struct hit_information {
         glm::vec3 pos, nrm;
         int tile_id;
@@ -218,6 +302,7 @@ struct chunk3d {
     };
 
     auto &get_tile(glm::vec3 fp) {
+        fp -= pos;
         glm::ivec3 p = fp + glm::vec3(dim) * 0.5f;
         if (p.x < 0)
             p.x = 0;
@@ -327,12 +412,22 @@ struct chunk3d {
     }
 
     void update() {
-        tiles_tex.bind();
-        tiles_tex.update({
-            .ptr = tiles.data(),
-            .dim = {dim.x, dim.y, dim.z},
-            .format = GL_RED_INTEGER,
-            .type = GL_UNSIGNED_INT,
-        });
+        auto now = coel::clock::now();
+        if (now - last_update > 0.05s && !valid) {
+            valid = true;
+            last_update = now;
+
+            tiles_tex.bind();
+            tiles_tex.update({
+                .ptr = tiles.data(),
+                .dim = {dim.x, dim.y, dim.z},
+                .format = GL_RED_INTEGER,
+                .type = GL_UNSIGNED_INT,
+            });
+        }
+    }
+
+    void invalidate() {
+        valid = false;
     }
 };
