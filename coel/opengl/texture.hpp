@@ -15,7 +15,7 @@ namespace opengl {
 
         struct data_configuration {
             const data_t *ptr = nullptr;
-            dim_t offset, dim;
+            dim_t offset = {0, 0}, dim;
             unsigned int format, type = GL_UNSIGNED_BYTE;
         };
 

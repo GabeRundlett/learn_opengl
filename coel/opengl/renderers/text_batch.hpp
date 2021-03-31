@@ -25,7 +25,7 @@ namespace opengl { namespace renderer {
         float font_size;
     };
 
-    class text_batch : public batch<text_batch, text_vertex, 10000, 10000> {
+    class text_batch : public batch_indexed<text_batch, text_vertex, 10000, 10000> {
         struct font_atlas_glyph_info {
             int id, index, width, unihex, height, xoffset, yoffset, xadvance, chnl, x, y, page;
         };
@@ -114,7 +114,7 @@ namespace opengl { namespace renderer {
         }
 
         void submit_glyph(const glm::vec2 p1, const glm::vec2 p2, const glm::vec2 t1, const glm::vec2 t2, const glm::vec4 color, const float font_size) {
-            batch::submit<4, 6>(
+            batch_indexed::submit<4, 6>(
                 {
                     // top right
                     text_vertex{

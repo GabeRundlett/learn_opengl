@@ -12,12 +12,12 @@ namespace opengl { namespace renderer {
         glm::vec2 pos, size, tex;
         glm::vec4 col;
     };
-    class ui_batch : public batch<ui_batch, ui_vertex, 10000, 10000> {
+    class ui_batch : public batch_indexed<ui_batch, ui_vertex, 10000, 10000> {
         opengl::shader_program shader;
         opengl::shader_uniform u_view_mat;
 
       public:
-        ui_batch() : batch<ui_batch, ui_vertex, 10000, 10000>(),
+        ui_batch() : batch_indexed<ui_batch, ui_vertex, 10000, 10000>(),
                      shader({.source_str = ui_batch_vert}, {.source_str = ui_batch_frag}) {
             u_view_mat = shader.find_uniform("u_view_mat");
             vao.bind();

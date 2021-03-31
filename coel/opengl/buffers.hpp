@@ -1,5 +1,7 @@
 #pragma once
 
+#include <coel/exception.hpp>
+
 #include <glad/glad.h>
 #include <cstddef>
 #include <fmt/core.h>
