@@ -7,13 +7,26 @@
 #include <coel/graphics/ui.hpp>
 
 class my_app : public coel::application {
-    graphics::menu_ui menu;
+    graphics::menu_ui<my_app> menu;
+    bool move_button = false;
+    bool size_button = false;
 
-public:
+  public:
     my_app() : coel::application({1200, 600}, "matrix2d math") {
-        menu.buttons.push_back(graphics::button{
-            .pos = {20, 20},
-            .size = {130, 40},
+        menu.buttons.push_back(graphics::button<my_app>{
+            .user_ptr = this,
+            .get_pos = [](const graphics::button<my_app> &, my_app &app) -> glm::vec2 {
+                static glm::vec2 p = {20, 20};
+                if (app.move_button)
+                    p = app.mouse_pos;
+                return p;
+            },
+            .get_size = [](const graphics::button<my_app> &self, my_app &app) -> glm::vec2 {
+                static glm::vec2 s = {200, 40};
+                if (app.size_button)
+                    s = app.mouse_pos - self.get_pos(self, app); 
+                return s;
+            },
             .color_focused = {0.5, 0.55, 0.9, 1},
             .color_unfocused = {0.4, 0.47, 0.8, 1},
             .label = {
@@ -23,14 +36,7 @@ public:
                 .offset = {10, 2},
                 .scale = 28,
             },
-            .user_ptr = this,
-            .on_release = [](void *user_ptr) -> void {
-                auto *app_ptr = reinterpret_cast<my_app *>(user_ptr);
-                if (app_ptr) {
-                    auto &app = *app_ptr;
-                    app.toggle_pause();
-                }
-            },
+            .on_release = [](const graphics::button<my_app> &, my_app &app) -> void { app.toggle_pause(); },
         });
     }
 
@@ -50,6 +56,8 @@ public:
 
     void on_key(const coel::key_event &e) override {
         menu.process_key(e);
+        move_button = e.key == GLFW_KEY_A && e.action != GLFW_RELEASE;
+        size_button = e.key == GLFW_KEY_S && e.action != GLFW_RELEASE;
     }
 
     void on_resize() override {

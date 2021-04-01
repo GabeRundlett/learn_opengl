@@ -19,33 +19,44 @@ namespace graphics {
         float scale = 1.0f;
     };
 
+    template<typename user_type>
     struct button {
-        glm::vec2 pos, size;
+        user_type *user_ptr = nullptr;
+        glm::vec2 (*get_pos)(const button<user_type> &, user_type &) = nullptr;
+        glm::vec2 (*get_size)(const button<user_type> &, user_type &) = nullptr;
+        
+        // glm::vec2 pos, size;
+
         glm::vec4 color_focused, color_unfocused;
         component_label label;
 
-        void *user_ptr = nullptr;
-        void (*on_press)(void *) = nullptr;
-        void (*on_release)(void *) = nullptr;
+        void (*on_press)(const button<user_type> &, user_type &) = nullptr;
+        void (*on_release)(const button<user_type> &, user_type &) = nullptr;
 
         bool is_hovered = false, is_pressed = false;
 
         void hover(const glm::vec2 mpos) {
-            is_hovered = mpos.x > pos.x && mpos.x < pos.x + size.x &&
-                         mpos.y > pos.y && mpos.y < pos.y + size.y;
+            if (user_ptr) {
+                auto pos = get_pos(*this, *user_ptr);
+                auto size = get_size(*this, *user_ptr);
+                is_hovered = mpos.x > pos.x && mpos.x < pos.x + size.x &&
+                            mpos.y > pos.y && mpos.y < pos.y + size.y;
+            }
         }
 
         void press() {
             if (is_hovered) {
                 if (on_press)
-                    on_press(user_ptr);
+                    if (user_ptr)
+                        on_press(*this, *user_ptr);
                 is_pressed = true;
             }
         }
 
         void release() {
             if (is_pressed && on_release)
-                on_release(user_ptr);
+                if (user_ptr)
+                    on_release(*this, *user_ptr);
             is_pressed = false;
         }
 
@@ -58,8 +69,12 @@ namespace graphics {
         }
 
         void draw(opengl::renderer::ui_batch &ui_batch, opengl::renderer::text_batch &text_batch) const {
-            ui_batch.submit_rect(pos, size, is_hovered ? color_focused : color_unfocused);
-            text_batch.submit(pos + label.offset, label.text.c_str(), label.scale, is_hovered ? label.color_focused : label.color_unfocused);
+            if (user_ptr) {
+                auto pos = get_pos(*this, *user_ptr);
+                auto size = get_size(*this, *user_ptr);
+                ui_batch.submit_rect(pos, size, is_hovered ? color_focused : color_unfocused);
+                text_batch.submit(pos + label.offset, label.text.c_str(), label.scale, is_hovered ? label.color_focused : label.color_unfocused);
+            }
         }
     };
 
@@ -290,11 +305,12 @@ namespace graphics {
         }
     };
 
+    template<typename user_type>
     struct menu_ui {
         opengl::renderer::ui_batch ui;
         opengl::renderer::text_batch text = opengl::renderer::text_batch("coel/assets/RobotoFontAtlas.png");
 
-        std::vector<button> buttons;
+        std::vector<button<user_type>> buttons;
         std::vector<slider> sliders;
         std::vector<checkbox> checkboxes;
         std::vector<editable_textbox> textboxes;
@@ -373,7 +389,7 @@ namespace graphics {
         void draw_settings() {
             ui.begin();
             text.begin();
-            ui.submit_rect({0, 0}, {320, frame_dim.y}, {0.25, 0.28, 0.4, 1});
+            ui.submit_rect({10, 10}, {300, frame_dim.y - 20}, {0.25, 0.28, 0.4, 1});
 
             for (auto &elem : buttons)
                 elem.draw(ui, text);

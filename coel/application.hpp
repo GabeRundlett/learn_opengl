@@ -41,15 +41,18 @@ namespace coel {
                 if (app_ptr) {
                     app_ptr->frame_dim = {size_x, size_y};
                     app_ptr->resize();
+                    app_ptr->on_event();
                 }
             });
 
             glfwSetCursorPosCallback(glfw.window_ptr, [](GLFWwindow *glfw_window_ptr, double mouse_x, double mouse_y) -> void {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
-                    app_ptr->mouse_pos_diff = glm::vec2(mouse_x, mouse_y) - app_ptr->mouse_pos;
-                    app_ptr->mouse_pos = glm::vec2(mouse_x, mouse_y);
+                    app_ptr->input.mouse.cursor_offset = glm::vec2(mouse_x, mouse_y) - app_ptr->input.mouse.cursor_pos;
+                    app_ptr->input.mouse.cursor_pos = glm::vec2(mouse_x, mouse_y);
                     app_ptr->on_mouse_move();
+                    app_ptr->on_event();
+                    app_ptr->on_event();
                 }
             });
 
@@ -57,6 +60,7 @@ namespace coel {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
                     app_ptr->on_mouse_scroll(glm::dvec2{offset_x, offset_y});
+                    app_ptr->on_event();
                 }
             });
 
@@ -64,6 +68,14 @@ namespace coel {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
                     app_ptr->on_mouse_button({button, action, mods});
+                    app_ptr->input.mouse.buttons[button] = action != GLFW_RELEASE;
+                    app_ptr->input.mouse.active = {
+                        .button = button,
+                        .mods = mods,
+                        .action = action,
+                    };
+                    app_ptr->on_event();
+                    app_ptr->input.mouse.active = {};
                 }
             });
 
@@ -82,13 +94,23 @@ namespace coel {
                         }
                     }
                     app_ptr->on_key({key, scancode, action, mods});
+                    app_ptr->input.keyboard.keys[key] = action != GLFW_RELEASE;
+                    app_ptr->input.keyboard.active = {
+                        .key = key,
+                        .mods = mods,
+                        .action = action,
+                    };
+                    app_ptr->on_event();
+                    app_ptr->input.keyboard.active = {};
                 }
+                    
             });
 
             glfwSetCharCallback(glfw.window_ptr, [](GLFWwindow *glfw_window_ptr, unsigned int codepoint) -> void {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
                     app_ptr->on_char(codepoint);
+                    app_ptr->on_event();
                 }
             });
 
@@ -96,11 +118,27 @@ namespace coel {
                 auto app_ptr = static_cast<application *>(glfwGetWindowUserPointer(glfw_window_ptr));
                 if (app_ptr) {
                     app_ptr->is_active = mode;
+                    app_ptr->on_event();
                 }
             });
         }
 
       protected:
+        virtual void on_mouse_move() {}
+        virtual void on_mouse_scroll(const glm::dvec2) {}
+        virtual void on_mouse_button(const mouse_button_event &) {}
+        virtual void on_key(const key_event &) {}
+        virtual void on_char(unsigned int) {}
+
+        virtual void on_draw() {}
+        virtual void on_resize() {}
+        virtual void on_update(duration) {}
+        virtual void on_pause() {}
+        virtual void on_resume() {}
+
+        virtual void on_event() {}
+
+      public:
         glm::uvec2 frame_dim = {800, 600};
         std::string title = "coel application";
 
@@ -108,7 +146,8 @@ namespace coel {
 
         clock::time_point now;
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
-        glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
+        input_state input;
+        // glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
 
         opengl::renderer::ui_batch ui_batch;
         opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("coel/assets/RobotoFontAtlas.png");
@@ -122,18 +161,6 @@ namespace coel {
             is_paused = !is_paused;
             is_paused ? on_pause() : on_resume();
         }
-
-        virtual void on_mouse_move() {}
-        virtual void on_mouse_scroll(const glm::dvec2) {}
-        virtual void on_mouse_button(const mouse_button_event &) {}
-        virtual void on_key(const key_event &) {}
-        virtual void on_char(unsigned int) {}
-
-        virtual void on_draw() {}
-        virtual void on_resize() {}
-        virtual void on_update(duration) {}
-        virtual void on_pause() {}
-        virtual void on_resume() {}
 
       public:
         application(glm::uvec2 frame_dim, const char *const title_str) : frame_dim(frame_dim), title(title_str) {
@@ -214,12 +241,12 @@ namespace coel {
         }
         inline void set_mouse_capture(bool should_capture) {
             glfwSetCursorPos(glfw.window_ptr, frame_dim.x / 2, frame_dim.y / 2);
-            mouse_pos = glm::vec2(frame_dim.x / 2, frame_dim.y / 2);
+            input.mouse.cursor_pos = glm::vec2(frame_dim.x / 2, frame_dim.y / 2);
             glfwSetInputMode(glfw.window_ptr, GLFW_CURSOR, should_capture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
         inline void set_mouse_pos(const glm::vec2 p) {
-            mouse_pos = p;
-            glfwSetCursorPos(glfw.window_ptr, mouse_pos.x, mouse_pos.y);
+            input.mouse.cursor_pos = p;
+            glfwSetCursorPos(glfw.window_ptr, p.x, p.y);
         }
     };
 } // namespace coel
