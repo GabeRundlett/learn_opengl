@@ -13,6 +13,10 @@ uniform usampler3D u_tiles_tex;
 uniform vec3 u_cube_pos;
 uniform vec3 u_cube_dim;
 uniform vec3 u_cam_pos;
+uniform vec2 u_frame_dim;
+
+float u_gamma = 1.2f;
+float u_exposure = 0.1f;
 
 const uint tile_id_none = 0u;
 const uint tile_id_dirt = 1u;
@@ -383,4 +387,15 @@ void main() {
 
     vec3 diffuse = sky_col * clamp(dot(vec3(0, 1, 0), surface.nrm) * 0.5 + 0.5, 0, 1) + sun_col * (clamp(dot(-sun_dir, surface.nrm), 0, 1) * float(!sunray.hit_surface));
     frag_col = vec4(surface.col * diffuse, 1);
+
+    vec3 hdr_color = frag_col.rgb;
+    vec3 col_mapped = vec3(1.0) - exp(-hdr_color * u_exposure);
+    col_mapped = pow(col_mapped, vec3(1.0f / u_gamma));
+    frag_col = vec4(col_mapped, 1);
+    vec2 uv = (gl_FragCoord.xy - vec2((u_frame_dim.x - u_frame_dim.y) * 0.5, 0)) / u_frame_dim.yy;
+    const float cross_length = 0.004;
+    const float cross_thickness = 0.001;
+    if (uv.x > 0.5-cross_length && uv.x < 0.5+cross_length && uv.y > 0.5-cross_thickness && uv.y < 0.5+cross_thickness || 
+        uv.x > 0.5-cross_thickness && uv.x < 0.5+cross_thickness && uv.y > 0.5-cross_length && uv.y < 0.5+cross_length)
+        frag_col = vec4(1-frag_col.rgb, 1);
 }

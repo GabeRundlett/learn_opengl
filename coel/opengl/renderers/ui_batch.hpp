@@ -39,9 +39,8 @@ namespace opengl { namespace renderer {
             glUniformMatrix4fv(u_view_mat.location, 1, false, reinterpret_cast<float *>(&view));
         }
 
-        void submit_rect(glm::vec2 pos, glm::vec2 size, glm::vec4 color) {
-            glm::vec2 p1 = {pos.x, pos.y};
-            glm::vec2 p2 = {pos.x + size.x, pos.y + size.y};
+        void submit_rect(glm::vec2 p1, glm::vec2 p2, glm::vec4 color) {
+            glm::vec2 size = p2 - p1;
 
             submit<4, 6>(
                 {

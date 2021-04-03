@@ -95,7 +95,7 @@ class tiles_game : public coel::application {
     }
 
     void on_mouse_move() {
-        world_mouse_pos = screen_to_world(mouse_pos);
+        world_mouse_pos = screen_to_world(input.mouse.cursor_pos);
         for (auto &p : points) {
             if (p.grabbed) {
                 if (glfwGetKey(glfw.window_ptr, GLFW_KEY_LEFT_CONTROL))

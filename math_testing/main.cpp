@@ -266,8 +266,8 @@ class my_app : public coel::application {
         if (!is_paused) {
             const auto screen_center = glm::vec2(frame_dim) * 0.5f;
             switch (cam_num) {
-            case 0: player.move_mouse(mouse_pos - screen_center); break;
-            case 1: second.move_mouse(mouse_pos - screen_center); break;
+            case 0: player.move_mouse(input.mouse.cursor_pos - screen_center); break;
+            case 1: second.move_mouse(input.mouse.cursor_pos - screen_center); break;
             }
             set_mouse_pos(screen_center);
         }
@@ -276,7 +276,7 @@ class my_app : public coel::application {
     void on_mouse_button(const coel::mouse_button_event &e) {
         if (is_paused) {
             if (e.button == GLFW_MOUSE_BUTTON_LEFT && e.action == GLFW_PRESS) {
-                cam_num = mouse_pos.x > frame_dim.x / 2;
+                cam_num = input.mouse.cursor_pos.x > frame_dim.x / 2;
                 toggle_pause();
             }
         }

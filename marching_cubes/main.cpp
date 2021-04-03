@@ -608,7 +608,7 @@ class my_app : public coel::application {
     void on_mouse_move() {
         if (!is_paused) {
             const auto screen_center = glm::vec2(frame_dim) * 0.5f;
-            player.move_mouse(mouse_pos - screen_center);
+            player.move_mouse(input.mouse.cursor_pos - screen_center);
             set_mouse_pos(screen_center);
         }
     }

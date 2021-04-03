@@ -11,6 +11,11 @@ namespace graphics {
         glm::vec3 look = {0, 0, 1}, look_bi = {-1, 0, 0}, look_up = {0, 1, 0};
         glm::mat4 proj_mat = glm::identity<glm::mat4>(), view_mat = glm::identity<glm::mat4>();
 
+        void set_fov(float degrees) {
+            fov = glm::radians(degrees);
+            update_proj();
+        }
+
         void update_proj() {
             proj_mat = glm::perspective(fov, aspect, znear, zfar);
         }

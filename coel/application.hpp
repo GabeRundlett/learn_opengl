@@ -216,7 +216,7 @@ namespace coel {
                         frame_dim.x, frame_dim.y),
                     14.0f, text_col, &bounds);
 
-                ui_batch.submit_rect(bounds.min - border, bounds.max - bounds.min + border * 2.0f, {0.0f, 0.0f, 0.0f, 0.5f});
+                ui_batch.submit_rect(bounds.min - border, bounds.max + border, {0.0f, 0.0f, 0.0f, 0.5f});
             }
 
             ui_batch.end();

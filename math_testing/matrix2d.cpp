@@ -18,13 +18,13 @@ class my_app : public coel::application {
             .get_pos = [](const graphics::button<my_app> &, my_app &app) -> glm::vec2 {
                 static glm::vec2 p = {20, 20};
                 if (app.move_button)
-                    p = app.mouse_pos;
+                    p = app.input.mouse.cursor_pos;
                 return p;
             },
             .get_size = [](const graphics::button<my_app> &self, my_app &app) -> glm::vec2 {
                 static glm::vec2 s = {200, 40};
                 if (app.size_button)
-                    s = app.mouse_pos - self.get_pos(self, app); 
+                    s = app.input.mouse.cursor_pos - self.get_pos(self, app); 
                 return s;
             },
             .color_focused = {0.5, 0.55, 0.9, 1},
@@ -47,11 +47,11 @@ class my_app : public coel::application {
     }
 
     void on_mouse_move() override {
-        menu.mouse_move(mouse_pos);
+        menu.mouse_move(input.mouse.cursor_pos);
     }
 
     void on_mouse_button(const coel::mouse_button_event &e) override {
-        menu.mouse_press(e, mouse_pos);
+        menu.mouse_press(e, input.mouse.cursor_pos);
     }
 
     void on_key(const coel::key_event &e) override {
