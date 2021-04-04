@@ -365,7 +365,7 @@ void main() {
         camray_conf.origin += cam_diff - cam_dir * 0.0001;
 
     camray_conf.dir = cam_dir;
-    camray_conf.max_iter = 32u * 3;
+    camray_conf.max_iter = 128u * 3;
     camray_conf.step_scale = 1 << 0;
 
     raycast_result camray = raycast(camray_conf);

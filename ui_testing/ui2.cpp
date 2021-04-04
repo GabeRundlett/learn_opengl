@@ -23,13 +23,13 @@ class my_app : public coel::application {
             }),
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("FOV: {}", player.cam.fov); },
-                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 35}, window.rect.top_left + glm::vec2{150, 45}}; },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 60}, window.rect.top_left + glm::vec2{150, 70}}; },
                 .call = [&](float value) { player.cam.set_fov(value); },
                 .range = {.min = 10.0f, .max = 175.0f},
             }),
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("Move Speed: {}", player.move_speed); },
-                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 50}, window.rect.top_left + glm::vec2{150, 60}}; },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 100}, window.rect.top_left + glm::vec2{150, 110}}; },
                 .call = [&](float value) { player.move_speed = value; },
                 .range = {.min = 0.01f, .max = 10.0f},
             }),
@@ -41,7 +41,7 @@ class my_app : public coel::application {
         glClear(GL_COLOR_BUFFER_BIT);
 
         if (is_paused)
-            window.draw(ui_batch);
+            window.draw(ui_batch, text_batch);
     }
 
     void on_event() {

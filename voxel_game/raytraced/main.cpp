@@ -63,10 +63,6 @@ class voxel_game : public coel::application {
 
         shader_init();
 
-        player.cam.fov = glm::radians(70.0f);
-        player.cam.update_proj();
-        player.move_sprint_mult = 16;
-
         resize();
         window.components = {{
             std::make_shared<ui_button>(button{
@@ -90,12 +86,20 @@ class voxel_game : public coel::application {
                 .value = 8.0f,
                 .range = {.min = 0.01f, .max = 20.0f},
             }),
+            std::make_shared<ui_slider>(slider{
+                .text = [&]() { return fmt::format("Move Sprint Multiplier: {}", player.move_sprint_mult); },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 150}, window.rect.top_left + glm::vec2{150, 160}}; },
+                .call = [&](float value) { player.move_sprint_mult = value; },
+
+                .value = 2.0f,
+                .range = {.min = 0.01f, .max = 4.0f},
+            }),
         }};
 
-        int chunk_radius = 1;
-        for (int zi = -chunk_radius; zi < chunk_radius; ++zi) {
-            for (int yi = -chunk_radius; yi < chunk_radius; ++yi) {
-                for (int xi = -chunk_radius; xi < chunk_radius; ++xi) {
+        int chunk_radius = 0;
+        for (int zi = -chunk_radius; zi <= chunk_radius; ++zi) {
+            for (int yi = -chunk_radius; yi <= chunk_radius; ++yi) {
+                for (int xi = -chunk_radius; xi <= chunk_radius; ++xi) {
                     chunks.emplace_back(new chunk3d(glm::vec3(xi, yi, zi)));
                 }
             }
