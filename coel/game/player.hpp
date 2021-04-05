@@ -82,9 +82,9 @@ namespace coel {
             float dt = (float)elapsed.count();
 
             if (move_foreward)
-                vel -= accel * cam.look * dt;
+                vel -= accel * normalize(glm::vec3(cam.look.x, 0, cam.look.z)) * dt;
             if (move_backward)
-                vel += accel * cam.look * dt;
+                vel += accel * normalize(glm::vec3(cam.look.x, 0, cam.look.z)) * dt;
             if (move_left)
                 vel += accel * normalize(glm::vec3(cam.look_bi.x, 0, cam.look_bi.z)) * dt;
             if (move_right)

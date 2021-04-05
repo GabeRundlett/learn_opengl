@@ -11,9 +11,7 @@ using namespace glm;
 using namespace std::chrono_literals;
 
 class voxel_game : public coel::application {
-    opengl::shader_program tile_shader = opengl::shader_program(
-        {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
-        {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
+    opengl::shader_program tile_shader;
 
     opengl::shader_uniform
         u_view_mat,
@@ -25,6 +23,10 @@ class voxel_game : public coel::application {
         u_selected_tile_nrm,
         u_tilemap_tex,
         u_tiles_tex,
+        u_exposure,
+        u_gamma,
+        u_time,
+        u_hotbar_id,
         u_frame_dim;
 
     coel::player3d player;
@@ -36,7 +38,18 @@ class voxel_game : public coel::application {
     bool should_remove = false, should_place = false;
     coel::clock::time_point last_remove = now, last_place = now;
 
+    float exposure = 0.1f, gamma = 1.2f;
+    chunk3d::tile_id hotbar_id = chunk3d::dirt;
+
     void shader_init() {
+        try {
+            tile_shader = opengl::shader_program(
+                {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
+                {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
+        } catch (const coel::exception &e) {
+            MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
+        }
+
         u_view_mat = tile_shader.find_uniform("u_view_mat");
         u_proj_mat = tile_shader.find_uniform("u_proj_mat");
         u_cube_dim = tile_shader.find_uniform("u_cube_dim");
@@ -49,10 +62,24 @@ class voxel_game : public coel::application {
         u_tiles_tex = tile_shader.find_uniform("u_tiles_tex");
         u_frame_dim = tile_shader.find_uniform("u_frame_dim");
 
+        u_exposure = tile_shader.find_uniform("u_exposure");
+        u_gamma = tile_shader.find_uniform("u_gamma");
+        
+        u_time = tile_shader.find_uniform("u_time");
+        u_hotbar_id = tile_shader.find_uniform("u_hotbar_id");
+
         tile_shader.bind();
+        
         opengl::shader_program::send(u_cam_pos, player.cam.pos);
         opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
         opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+
+        opengl::shader_program::send(u_exposure, exposure);
+        opengl::shader_program::send(u_gamma, gamma);
+
+        opengl::shader_program::send(u_hotbar_id, hotbar_id);
+
+        on_resize();
     }
 
   public:
@@ -80,7 +107,7 @@ class voxel_game : public coel::application {
             }),
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("Move Speed: {}", player.move_speed); },
-                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 110}, window.rect.top_left + glm::vec2{150, 120}}; },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 120}, window.rect.top_left + glm::vec2{150, 130}}; },
                 .call = [&](float value) { player.move_speed = value; },
 
                 .value = 8.0f,
@@ -88,11 +115,27 @@ class voxel_game : public coel::application {
             }),
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("Move Sprint Multiplier: {}", player.move_sprint_mult); },
-                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 150}, window.rect.top_left + glm::vec2{150, 160}}; },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 154}, window.rect.top_left + glm::vec2{150, 164}}; },
                 .call = [&](float value) { player.move_sprint_mult = value; },
 
                 .value = 2.0f,
                 .range = {.min = 0.01f, .max = 4.0f},
+            }),
+            std::make_shared<ui_slider>(slider{
+                .text = [&]() { return fmt::format("Exposure: {}", exposure); },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 210}, window.rect.top_left + glm::vec2{150, 220}}; },
+                .call = [&](float value) { tile_shader.bind(); exposure = value; opengl::shader_program::send(u_exposure, value); },
+
+                .value = 0.1f,
+                .range = {.min = 0.0f, .max = 4.0f},
+            }),
+            std::make_shared<ui_slider>(slider{
+                .text = [&]() { return fmt::format("Gamma: {}", gamma); },
+                .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 244}, window.rect.top_left + glm::vec2{150, 254}}; },
+                .call = [&](float value) { tile_shader.bind(); gamma = value; opengl::shader_program::send(u_gamma, value); },
+
+                .value = 1.2f,
+                .range = {.min = 0.0f, .max = 4.0f},
             }),
         }};
 
@@ -126,7 +169,7 @@ class voxel_game : public coel::application {
                     for (float yi = -radius; yi < radius; ++yi) {
                         for (float xi = -radius; xi < radius; ++xi) {
                             if (xi * xi + yi * yi + zi * zi < radius * radius)
-                                chunk->get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = chunk3d::dirt;
+                                chunk->get_tile(tile_pick_ray.hit_info.pos + tile_pick_ray.hit_info.nrm + vec3(xi, yi, zi)) = hotbar_id;
                         }
                     }
                 }
@@ -165,12 +208,13 @@ class voxel_game : public coel::application {
         tile_shader.bind();
         opengl::shader_program::send(u_view_mat, player.cam.view_mat);
         opengl::shader_program::send(u_cam_pos, player.cam.pos);
+        opengl::shader_program::send(u_time, float(coel::duration(now - start_time).count()));
+        opengl::shader_program::send(u_hotbar_id, hotbar_id);
 
         if (!is_paused) {
-            if (now - last_place > 0.02s)
+            if (now - last_place > 0.05s)
                 place();
-
-            if (now - last_remove > 0.02s)
+            if (now - last_remove > 0.05s)
                 remove();
         }
 
@@ -213,12 +257,9 @@ class voxel_game : public coel::application {
         }
         if (e.action == GLFW_PRESS) {
             switch (e.key) {
-            case GLFW_KEY_R:
-                tile_shader = opengl::shader_program(
-                    {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
-                    {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
-                shader_init();
-                break;
+            case GLFW_KEY_R: shader_init(); break;
+            case GLFW_KEY_LEFT: hotbar_id = chunk3d::tile_id((hotbar_id - 2) % 10 + 1); break;
+            case GLFW_KEY_RIGHT: hotbar_id = chunk3d::tile_id((hotbar_id) % 10 + 1); break;
             }
         }
     }
@@ -248,12 +289,20 @@ class voxel_game : public coel::application {
             if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
                 should_remove = e.action == GLFW_PRESS;
                 remove();
-                last_remove = now + 100ms;
+                last_remove = now + 200ms;
             }
             if (e.button == GLFW_MOUSE_BUTTON_RIGHT) {
                 should_place = e.action == GLFW_PRESS;
                 place();
-                last_place = now + 100ms;
+                last_place = now + 200ms;
+            }
+            if (e.button == GLFW_MOUSE_BUTTON_MIDDLE) {
+                for (auto &chunk : chunks) {
+                    chunk->raycast(player.cam.pos, -player.cam.look, tile_pick_ray);
+                    if (tile_pick_ray.hit) {
+                        hotbar_id = (chunk3d::tile_id)chunk->get_tile(tile_pick_ray.hit_info.pos);
+                    }
+                }
             }
         }
     }

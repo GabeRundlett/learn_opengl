@@ -15,8 +15,11 @@ uniform vec3 u_cube_dim;
 uniform vec3 u_cam_pos;
 uniform vec2 u_frame_dim;
 
-float u_gamma = 1.2f;
-float u_exposure = 0.1f;
+uniform float u_gamma;
+uniform float u_exposure;
+
+uniform float u_time = 0;
+uniform int u_hotbar_id = 0;
 
 const uint tile_id_none = 0u;
 const uint tile_id_dirt = 1u;
@@ -37,7 +40,7 @@ vec2 get_tex_px(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(1, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -51,7 +54,7 @@ vec2 get_tex_nx(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(1, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -65,7 +68,7 @@ vec2 get_tex_py(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(0, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -79,7 +82,7 @@ vec2 get_tex_ny(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(2, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -93,7 +96,7 @@ vec2 get_tex_pz(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(1, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -107,7 +110,7 @@ vec2 get_tex_nz(uint tile_id) {
     switch(tile_id) {
         case tile_id_dirt:          return vec2(2, 0);
         case tile_id_grass:         return vec2(1, 0);
-        case tile_id_sand:          return vec2(3, 0);
+        case tile_id_sand:          return vec2(3, 2);
         case tile_id_gravel:        return vec2(3, 1);
         case tile_id_stone:         return vec2(2, 1);
         case tile_id_stone_cracked: return vec2(1, 1);
@@ -149,14 +152,14 @@ raycast_result raycast(in raycast_config config) {
     result.hit_surface = false;
     result.outside_bounds = false;
 
-    float delta_dist_xy = config.dir.y == 0 ? 0 : (config.dir.x == 0 ? 1 : abs(1.0f / config.dir.x));
-    float delta_dist_xz = config.dir.z == 0 ? 0 : (config.dir.x == 0 ? 1 : abs(1.0f / config.dir.x));
+    float delta_dist_xy = config.dir.y == 0 ? 0 : (config.dir.x == 0 ? config.step_scale : abs(1.0f / config.dir.x));
+    float delta_dist_xz = config.dir.z == 0 ? 0 : (config.dir.x == 0 ? config.step_scale : abs(1.0f / config.dir.x));
 
-    float delta_dist_yx = config.dir.x == 0 ? 0 : (config.dir.y == 0 ? 1 : abs(1.0f / config.dir.y));
-    float delta_dist_yz = config.dir.z == 0 ? 0 : (config.dir.y == 0 ? 1 : abs(1.0f / config.dir.y));
+    float delta_dist_yx = config.dir.x == 0 ? 0 : (config.dir.y == 0 ? config.step_scale : abs(1.0f / config.dir.y));
+    float delta_dist_yz = config.dir.z == 0 ? 0 : (config.dir.y == 0 ? config.step_scale : abs(1.0f / config.dir.y));
 
-    float delta_dist_zx = config.dir.x == 0 ? 0 : (config.dir.z == 0 ? 1 : abs(1.0f / config.dir.z));
-    float delta_dist_zy = config.dir.y == 0 ? 0 : (config.dir.z == 0 ? 1 : abs(1.0f / config.dir.z));
+    float delta_dist_zx = config.dir.x == 0 ? 0 : (config.dir.z == 0 ? config.step_scale : abs(1.0f / config.dir.z));
+    float delta_dist_zy = config.dir.y == 0 ? 0 : (config.dir.z == 0 ? config.step_scale : abs(1.0f / config.dir.z));
 
     float to_side_dist_xy;
     float to_side_dist_xz;
@@ -242,6 +245,7 @@ raycast_result raycast(in raycast_config config) {
         }
 
         ++result.total_steps;
+        config.step_scale = 1 << (result.total_steps / config.max_iter);
     }
 
     return result;
@@ -338,7 +342,7 @@ surface_details get_surface_details(in raycast_config config, in raycast_result 
 }
 
 float rand(float seed) {
-    return fract(sin(dot(vec2(seed) , vec2(12.9898,78.233))) * 43758.5453) * 2 - 1;
+    return fract(sin(dot(vec2(seed), vec2(12.9898,78.233))) * 43758.5453) * 2 - 1;
 }
 
 vec3 rand(vec3 seed) {
@@ -370,10 +374,36 @@ void main() {
 
     raycast_result camray = raycast(camray_conf);
 
-    if (!camray.hit_surface) {
-        discard;
+    vec2 uv = (gl_FragCoord.xy - vec2((u_frame_dim.x - u_frame_dim.y) * 0.5, 0)) / u_frame_dim.yy;
+
+    if (uv.y < 0.1) { // show hotbar
+        vec2 hotbar_uv = (uv + vec2(0.05, -1 + 0.1)) * 10 * vec2(1, -1);
+        uint hotbar_id = uint(hotbar_uv.x);
+
+        if (hotbar_uv.x >= 1 && hotbar_uv.x < 10) {
+            hotbar_uv = fract(hotbar_uv);
+            float hotbar_item_border = 0.04;
+            vec2 hotbar_tex_uv = (get_tex_nx(hotbar_id) + (hotbar_uv - hotbar_item_border) / (1.0f - hotbar_item_border * 2)) / 8;
+            vec4 texcol = texture(u_tilemap_tex, hotbar_tex_uv);
+            frag_col = vec4(texcol.rgb, 1);
+            if ((hotbar_uv.x < hotbar_item_border || hotbar_uv.x > 1 - hotbar_item_border || 
+                hotbar_uv.y < hotbar_item_border || hotbar_uv.y > 1 - hotbar_item_border)) {
+                if (hotbar_id == u_hotbar_id)
+                    frag_col += vec4(vec3(1), 1);
+                else
+                    frag_col = vec4(vec3(0), 1);
+            }
+            return;
+        }
     }
+
+    if (!camray.hit_surface)
+        discard;
+
     surface_details surface = get_surface_details(camray_conf, camray);
+
+    float depth = length(u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos - surface.pos);
+    gl_FragDepth = 1 - 2 / (depth + 1);
 
     raycast_config sunray_conf;
     sunray_conf.origin = surface.pos + surface.nrm * 0.0001;
@@ -382,20 +412,44 @@ void main() {
     sunray_conf.step_scale = 1;
     raycast_result sunray = raycast(sunray_conf);
 
-    float depth = length(u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos - surface.pos);
-    gl_FragDepth = 1 - 2 / (depth + 1);
+    raycast_config bounceray_conf;
+    bounceray_conf.origin = surface.pos + surface.nrm * 0.0001;
+    bounceray_conf.max_iter = 16u;
+    bounceray_conf.step_scale = 1;
+    float occlusion = 0.0f;
+    int samples = 40;
+    vec3 bounce_col = vec3(0);
+    
+    for (int i = 0; i < samples; ++i) {
+        bounceray_conf.dir = random_nrm(surface.nrm, surface.uvw + vec3(i), 1);
+        raycast_result bounceray = raycast(bounceray_conf);
+        if (bounceray.hit_surface) {
+            surface_details bounce_surface = get_surface_details(bounceray_conf, bounceray);
+            if (bounce_surface.tile_id == tile_id_sand)
+                bounce_col += bounce_surface.col ;
+        } else {
+            occlusion += 1.0f / samples;
+        }
+    }
 
-    vec3 diffuse = sky_col * clamp(dot(vec3(0, 1, 0), surface.nrm) * 0.5 + 0.5, 0, 1) + sun_col * (clamp(dot(-sun_dir, surface.nrm), 0, 1) * float(!sunray.hit_surface));
-    frag_col = vec4(surface.col * diffuse, 1);
+    if (surface.tile_id == tile_id_sand) {
+        frag_col = vec4(surface.col * 30, 1);
+    } else {
+        vec3 sun_contrib = sun_col * (clamp(dot(-sun_dir, surface.nrm), 0, 1) * float(!sunray.hit_surface));
+        vec3 sky_contrib = sky_col * occlusion;
+        vec3 diffuse = sun_contrib + sky_contrib + bounce_col;
+        frag_col = vec4(diffuse * surface.col, 1);
+    }
 
     vec3 hdr_color = frag_col.rgb;
     vec3 col_mapped = vec3(1.0) - exp(-hdr_color * u_exposure);
     col_mapped = pow(col_mapped, vec3(1.0f / u_gamma));
     frag_col = vec4(col_mapped, 1);
-    vec2 uv = (gl_FragCoord.xy - vec2((u_frame_dim.x - u_frame_dim.y) * 0.5, 0)) / u_frame_dim.yy;
     const float cross_length = 0.004;
     const float cross_thickness = 0.001;
+    
     if (uv.x > 0.5-cross_length && uv.x < 0.5+cross_length && uv.y > 0.5-cross_thickness && uv.y < 0.5+cross_thickness || 
         uv.x > 0.5-cross_thickness && uv.x < 0.5+cross_thickness && uv.y > 0.5-cross_length && uv.y < 0.5+cross_length)
         frag_col = vec4(1-frag_col.rgb, 1);
+    
 }

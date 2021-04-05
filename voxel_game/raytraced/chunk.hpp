@@ -88,6 +88,7 @@ struct chunk3d {
         .wrap = {.s = GL_CLAMP_TO_BORDER, .t = GL_CLAMP_TO_BORDER, .r = GL_CLAMP_TO_BORDER},
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
         .border_color = {0, 0, 0, 0},
+        .use_mipmap = true,
     });
 
     opengl::texture2d<> tilemap_tex = opengl::texture2d<>({
@@ -105,7 +106,7 @@ struct chunk3d {
         coel::fractal_noise_config noise_conf{
             .amplitude = 1.0f,
             .persistance = 0.5f,
-            .scale = 0.005f,
+            .scale = 0.002f,
             .lacunarity = 2.0f,
             .octaves = 8,
         };
@@ -115,7 +116,7 @@ struct chunk3d {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
                     glm::vec3 p = pos + glm::vec3(x, y, z);
-                    float density = coel::fractal_noise(p, noise_conf) - p.y / dim.y;
+                    float density = coel::fractal_noise(p, noise_conf) - (p.y - 16) / dim.y * 4;
                     // density = density - pow(1.0f / dim.y * (y + pos.y), 4.0f) * 2;
                     // float density = p.x + p.y + p.z;
                     std::uint8_t val = none;
@@ -137,7 +138,7 @@ struct chunk3d {
                                 if (replace_tile == stone || replace_tile == stone_cracked || replace_tile == stone_cobbled) {
                                     if (i == 1) {
                                         replace_tile = grass;
-                                        if (rand() % 200 == 0)
+                                        if (rand() % 1000 == 0)
                                             generate_tree(x, y, z);
                                     } else {
                                         if (rand() % (15 - i) == 0)
@@ -169,48 +170,70 @@ struct chunk3d {
         last_update = coel::clock::now();
     }
 
-    void generate_tree(int x, int y, int z) {
-        tiles[x + (y - 1) * dim.x + z * dim.x * dim.y] = dirt;
-
-        float radius = 2.0f + float(rand() % 50) / 100.0f;
-        int irad = int(radius);
-
-        bool should_place = true;
-
-        for (int yi = -irad; yi <= irad; ++yi) {
-            glm::uvec3 p = {x, y + yi + 7 - 0.5f * irad, z};
-            if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
-                auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
-                if (tile != none) {
-                    should_place = false;
-                    break;
-                }
-            }
-        }
-
+    void place_sphere(int x, int y, int z, float r, tile_id fill) {
+        int irad = int(r);
         for (int zi = -irad; zi <= irad; ++zi) {
             for (int yi = -irad; yi <= irad; ++yi) {
                 for (int xi = -irad; xi <= irad; ++xi) {
-                    glm::uvec3 p = {x + xi, y + yi + 7 - 0.5f * irad, z + zi};
-                    glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y + 7 - 0.5f * irad, z);
+                    glm::uvec3 p = {x + xi, y + yi, z + zi};
+                    glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y, z);
                     if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
-                        if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < radius * radius) {
+                        if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < r * r) {
                             auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
                             if (tile == none)
-                                tile = leaves;
+                                tile = fill;
                         }
                     }
                 }
             }
         }
+    }
 
-        for (int yi = 0; yi < 7; ++yi) {
-            glm::uvec3 p = {x, y + yi, z};
-            if (p.x > 0 && p.x < dim.x && p.y > 0 && p.y < dim.y && p.z > 0 && p.z < dim.z) {
-                auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
-                tile = log;
+    void place_cone(int x, int y, int z, float r, tile_id fill) {
+        int irad = int(r);
+        for (int zi = -irad; zi <= irad; ++zi) {
+            for (int yi = -irad; yi <= irad; ++yi) {
+                for (int xi = -irad; xi <= irad; ++xi) {
+                    glm::uvec3 p = {x + xi, y + yi, z + zi};
+                    glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y, z);
+                    if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
+                        if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < r * r) {
+                            auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
+                            if (tile == none)
+                                tile = fill;
+                        }
+                    }
+                }
             }
         }
+    }
+    
+    void place_cylinder_xz(int x, int y, int z, float r, int h, tile_id fill) {
+        int irad = int(r);
+        for (int zi = -irad; zi <= irad; ++zi) {
+            for (int yi = 0; yi <= h; ++yi) {
+                for (int xi = -irad; xi <= irad; ++xi) {
+                    glm::uvec3 p = {x + xi, y + yi, z + zi};
+                    glm::vec3 diff = glm::vec3(p) - glm::vec3(x, y, z);
+                    if (p.x < dim.x && p.y < dim.y && p.z < dim.z) {
+                        if (diff.x * diff.x + diff.z * diff.z < r * r) {
+                            auto &tile = tiles[p.x + p.y * dim.x + p.z * dim.x * dim.y];
+                            if (tile == none)
+                                tile = fill;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void generate_tree(int x, int y, int z) {
+        tiles[x + (y - 1) * dim.x + z * dim.x * dim.y] = dirt;
+
+        float radius = 2.3f + float(rand() % 50) / 100.0f;
+        place_sphere(x, y + 7 - int(0.5f * radius), z, radius, leaves);
+
+        place_cylinder_xz(x, y, z, 1, 7, log);
     }
 
     template <typename precision_t, std::size_t N>

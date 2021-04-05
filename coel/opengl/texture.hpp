@@ -121,8 +121,10 @@ namespace opengl {
                 static_assert("Multisampled Textures MUST be recreated");
             } else if constexpr (target == GL_TEXTURE_2D) {
                 glTexSubImage2D(target, 0, conf.offset.x, conf.offset.y, conf.dim.x, conf.dim.y, conf.format, conf.type, conf.ptr);
+                glGenerateMipmap(target);
             } else if constexpr (target == GL_TEXTURE_3D) {
                 glTexSubImage3D(target, 0, conf.offset.x, conf.offset.y, conf.offset.z, conf.dim.x, conf.dim.y, conf.dim.z, conf.format, conf.type, conf.ptr);
+                glGenerateMipmap(target);
             } else {
                 static_assert("Unsupported Texture Target");
             }

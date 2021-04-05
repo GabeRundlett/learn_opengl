@@ -144,7 +144,7 @@ namespace coel {
 
         glfw_app glfw = glfw_app(frame_dim, title);
 
-        clock::time_point now;
+        clock::time_point now, start_time;
         bool is_active : 1 = true, is_paused : 1 = true, show_debug_menu : 1 = false;
         input_state input;
         // glm::vec2 mouse_pos{0, 0}, mouse_pos_diff{0, 0};
@@ -153,7 +153,7 @@ namespace coel {
         opengl::renderer::text_batch text_batch = opengl::renderer::text_batch("coel/assets/RobotoFontAtlas.png");
 
         // debug info
-        std::chrono::steady_clock::time_point debug_frame_begin;
+        clock::time_point debug_frame_begin;
         unsigned int debug_frames_passed = 0, debug_prev_frames_passed = 1;
         glm::vec2 debug_text_pos = {16, 16};
 
@@ -167,8 +167,9 @@ namespace coel {
             glfwSetWindowUserPointer(glfw.window_ptr, this);
             use_vsync(true);
             set_callbacks();
-            now = std::chrono::steady_clock::now();
+            now = clock::now();
             debug_frame_begin = now;
+            start_time = now;
         }
 
         virtual ~application() {}
@@ -181,7 +182,7 @@ namespace coel {
             glfwPollEvents();
             using namespace std::chrono_literals;
             if (is_active) {
-                auto new_now = std::chrono::steady_clock::now();
+                auto new_now = clock::now();
                 on_update(duration(new_now - now));
                 now = new_now;
                 // debug info
