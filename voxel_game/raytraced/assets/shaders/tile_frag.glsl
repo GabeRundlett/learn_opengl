@@ -32,7 +32,7 @@ const uint tile_id_stone_cobbled = 7u;
 const uint tile_id_leaves = 8u;
 const uint tile_id_log = 9u;
 
-const vec3 sun_col = vec3(1, 0.6, 0.45) * 200;
+const vec3 sun_col = vec3(1, 0.6, 0.45) * 20;
 const vec3 sky_col = vec3(1.81f, 2.01f, 5.32f);
 const vec3 sun_dir = normalize(vec3(-2, -8, -2));
 
@@ -440,7 +440,7 @@ void main() {
             float hotbar_item_border = 0.04;
             vec2 hotbar_tex_uv = (get_tex_nx(hotbar_id) + (hotbar_uv - hotbar_item_border) / (1.0f - hotbar_item_border * 2)) / 8;
             vec4 texcol = texture(u_tilemap_tex, hotbar_tex_uv);
-            frag_col = vec4(texcol.rgb, 1);
+            frag_col = vec4(texcol.rgb * 10, 1);
             if ((hotbar_uv.x < hotbar_item_border || hotbar_uv.x > 1 - hotbar_item_border || 
                 hotbar_uv.y < hotbar_item_border || hotbar_uv.y > 1 - hotbar_item_border)) {
                 if (hotbar_id == u_hotbar_id)

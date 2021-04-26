@@ -2,7 +2,11 @@
 
 This is a repository in which I intend to learn how to use OpenGL by experimenting with different concepts.
 
+# Samples
+
 Currently, the most interesting concept I've created (at least in my opinion) is the raytraced voxel "game"
+
+![Image of raytraced voxels](img/raytracing.png)
 
 ## Building
 

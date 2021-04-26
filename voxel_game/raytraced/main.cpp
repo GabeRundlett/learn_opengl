@@ -198,7 +198,7 @@ class voxel_game : public coel::application {
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
             if (should_place && tile_pick_ray.hit) {
-                float radius = 6;
+                float radius = 1;
                 last_place = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
