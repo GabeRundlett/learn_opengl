@@ -71,7 +71,7 @@ namespace coel {
             }
         }
 
-        void update(duration elapsed) {
+        bool update(duration elapsed) {
             bool moving = move_foreward | move_backward | move_left | move_right | move_up | move_down;
             if (!moving)
                 current_move_speed = move_speed;
@@ -95,6 +95,7 @@ namespace coel {
                 vel.y -= accel * dt;
 
             float speed = glm::length(vel);
+            bool result = false;
             if (speed != 0) {
                 vel_dir = vel / speed;
                 speed = std::min(speed, current_move_speed);
@@ -108,8 +109,11 @@ namespace coel {
                     sign(vel.y) * std::min(std::abs(vel.y), std::abs(decel.y)),
                     sign(vel.z) * std::min(std::abs(vel.z), std::abs(decel.z)),
                 };
+
+                result = true;
             }
             cam.update_view();
+            return result;
         }
     };
 } // namespace coel

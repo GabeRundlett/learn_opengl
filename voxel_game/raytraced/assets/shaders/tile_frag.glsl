@@ -10,16 +10,16 @@ uniform vec3 u_selected_tile_pos;
 uniform vec3 u_selected_tile_nrm;
 uniform sampler2D u_tilemap_tex;
 uniform usampler3D u_tiles_tex;
+uniform sampler2D u_accum_tex;
 uniform vec3 u_cube_pos;
 uniform vec3 u_cube_dim;
 uniform vec3 u_cam_pos;
 uniform vec2 u_frame_dim;
 
-uniform float u_gamma;
-uniform float u_exposure;
-
 uniform float u_time = 0;
 uniform int u_hotbar_id = 0;
+uniform int u_frame_index;
+uniform int u_valid_frame_count = 0;
 
 const uint tile_id_none = 0u;
 const uint tile_id_dirt = 1u;
@@ -32,9 +32,9 @@ const uint tile_id_stone_cobbled = 7u;
 const uint tile_id_leaves = 8u;
 const uint tile_id_log = 9u;
 
-const vec3 sun_col = vec3(1, 0.6, 0.45) * 20;
+const vec3 sun_col = vec3(1, 0.6, 0.45) * 200;
 const vec3 sky_col = vec3(1.81f, 2.01f, 5.32f);
-const vec3 sun_dir = normalize(vec3(-2, -4, -1.3));
+const vec3 sun_dir = normalize(vec3(-2, -8, -2));
 
 vec2 get_tex_px(uint tile_id) {
     switch(tile_id) {
@@ -342,7 +342,7 @@ surface_details get_surface_details(in raycast_config config, in raycast_result 
 }
 
 float rand(float seed) {
-    return fract(sin(dot(vec2(seed), vec2(12.9898,78.233))) * 43758.5453) * 2 - 1;
+    return fract(sin(dot(vec2(seed) * gl_FragCoord.xy * 0.003498398, vec2(12.9898,78.233))) * 43758.5453) * 2 - 1;
 }
 
 vec3 rand(vec3 seed) {
@@ -354,7 +354,62 @@ vec3 rand(vec3 seed) {
 }
 
 vec3 random_nrm(vec3 nrm, vec3 seed, float variance) {
-    return nrm + rand(seed) * variance;
+    return nrm + rand(seed + 0.001f * u_frame_index) * variance;
+}
+
+struct bounce_results {
+    float sky_contrib;
+    float sun_contrib;
+    vec3 block_contrib;
+};
+
+bounce_results bounce_scene(in surface_details surface, in int max_bounces) {
+    int sample_count = 2;
+    float sample_contrib = 1.0f / sample_count;
+
+    bounce_results results;
+    results.sky_contrib = 0;
+    results.sun_contrib = 0;
+    results.block_contrib = vec3(0);
+
+    for (int sample_i = 0; sample_i < sample_count; ++sample_i) {    
+        for (int bounce_i = 1; bounce_i <= max_bounces; ++bounce_i) {
+            float bounce_contrib = pow(0.8, bounce_i);
+            float contrib = sample_contrib * bounce_contrib;
+
+            raycast_config bounceray_conf;
+            bounceray_conf.origin = surface.pos + surface.nrm * 0.0001f;
+            bounceray_conf.dir = random_nrm(surface.nrm, bounceray_conf.origin + sample_i, 1);
+            bounceray_conf.max_iter = 128;
+            bounceray_conf.step_scale = 1 << 0;
+            raycast_result bounceray = raycast(bounceray_conf);
+
+            raycast_config bounce_sunray_conf;
+            bounce_sunray_conf.origin = surface.pos + surface.nrm * 0.0001f;
+            bounce_sunray_conf.dir = normalize(random_nrm(-sun_dir, bounceray_conf.origin + sample_i, 0.01));
+            bounce_sunray_conf.max_iter = 128;
+            bounce_sunray_conf.step_scale = 1 << 0;
+            raycast_result bounce_sunray = raycast(bounce_sunray_conf);
+
+            if (bounceray.hit_surface) {
+                surface_details bounceray_surface = get_surface_details(bounceray_conf, bounceray);
+                if (bounceray_surface.tile_id == tile_id_sand) {
+                    results.block_contrib += bounceray_surface.col * contrib * 100;
+                    break;
+                }
+                results.block_contrib += bounceray_surface.col * contrib * 1;
+                surface = bounceray_surface;
+            } else {
+                results.sky_contrib += contrib;
+                if (!bounce_sunray.hit_surface)
+                    if (dot(normalize(bounce_sunray_conf.dir), -sun_dir) > 0.999)
+                        results.sun_contrib += contrib;
+                break;
+            }
+        }
+    }
+
+    return results;
 }
 
 void main() {
@@ -369,7 +424,7 @@ void main() {
         camray_conf.origin += cam_diff - cam_dir * 0.0001;
 
     camray_conf.dir = cam_dir;
-    camray_conf.max_iter = 128u * 3;
+    camray_conf.max_iter = 128 + 256 + 256;
     camray_conf.step_scale = 1 << 0;
 
     raycast_result camray = raycast(camray_conf);
@@ -401,55 +456,28 @@ void main() {
         discard;
 
     surface_details surface = get_surface_details(camray_conf, camray);
+    bounce_results bounce = bounce_scene(surface, 4);
+
+    vec3 diffuse = surface.col;
+    diffuse *= bounce.sky_contrib * sky_col + bounce.sun_contrib * sun_col + bounce.block_contrib;
 
     float depth = length(u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos - surface.pos);
-    gl_FragDepth = 1 - 2 / (depth + 1);
-
-    raycast_config sunray_conf;
-    sunray_conf.origin = surface.pos + surface.nrm * 0.0001;
-    sunray_conf.dir = -sun_dir;
-    sunray_conf.max_iter = 32u * 2;
-    sunray_conf.step_scale = 1;
-    raycast_result sunray = raycast(sunray_conf);
-
-    raycast_config bounceray_conf;
-    bounceray_conf.origin = surface.pos + surface.nrm * 0.0001;
-    bounceray_conf.max_iter = 16u;
-    bounceray_conf.step_scale = 1;
-    float occlusion = 0.0f;
-    int samples = 40;
-    vec3 bounce_col = vec3(0);
-    
-    for (int i = 0; i < samples; ++i) {
-        bounceray_conf.dir = random_nrm(surface.nrm, surface.uvw + vec3(i), 1);
-        raycast_result bounceray = raycast(bounceray_conf);
-        if (bounceray.hit_surface) {
-            surface_details bounce_surface = get_surface_details(bounceray_conf, bounceray);
-            if (bounce_surface.tile_id == tile_id_sand)
-                bounce_col += bounce_surface.col ;
-        } else {
-            occlusion += 1.0f / samples;
-        }
-    }
+    // gl_FragDepth = 1 - 2 / (depth + 1);
 
     if (surface.tile_id == tile_id_sand) {
-        frag_col = vec4(surface.col * 30, 1);
+        frag_col = vec4(surface.col * 10, 1);
     } else {
-        vec3 sun_contrib = sun_col * (clamp(dot(-sun_dir, surface.nrm), 0, 1) * float(!sunray.hit_surface));
-        vec3 sky_contrib = sky_col * occlusion;
-        vec3 diffuse = sun_contrib + sky_contrib + bounce_col;
-        frag_col = vec4(diffuse * surface.col, 1);
+        frag_col = vec4(diffuse, 1);
     }
 
-    vec3 hdr_color = frag_col.rgb;
-    vec3 col_mapped = vec3(1.0) - exp(-hdr_color * u_exposure);
-    col_mapped = pow(col_mapped, vec3(1.0f / u_gamma));
-    frag_col = vec4(col_mapped, 1);
+    vec4 accum_col = texture(u_accum_tex, gl_FragCoord.xy / u_frame_dim);
+    float amount = max(1.0f / (u_valid_frame_count + 1), 0.01f);
+    frag_col = mix(accum_col, frag_col, amount);
+
     const float cross_length = 0.004;
     const float cross_thickness = 0.001;
     
     if (uv.x > 0.5-cross_length && uv.x < 0.5+cross_length && uv.y > 0.5-cross_thickness && uv.y < 0.5+cross_thickness || 
         uv.x > 0.5-cross_thickness && uv.x < 0.5+cross_thickness && uv.y > 0.5-cross_length && uv.y < 0.5+cross_length)
         frag_col = vec4(1-frag_col.rgb, 1);
-    
 }

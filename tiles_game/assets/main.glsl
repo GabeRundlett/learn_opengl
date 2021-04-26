@@ -69,17 +69,27 @@ void main() {
         frag_col.rgb *= 0.5;
     }
 
-    float r = 0.08;
+    float r;
+    vec2 p;
 
-
-    vec2 p = u_intersection;
-    if (dot(p - uv, p - uv) < r * r)
-        frag_col = vec4(0.5, 0.2, 1, 1);
-    
-    r = 0.12;
-    for (int i = 0; i < u_point_count; ++i) {
-        vec2 p = u_points[i];
+    r = 0.06;
+    for (int i = 1; i < u_point_count - 1; ++i) {
+        p = u_points[i] + vec2(0.5);
         if (dot(p - uv, p - uv) < r * r)
             frag_col = vec4(0.5, 0, 1, 1);
     }
+    
+    r = 0.08;
+    p = u_intersection;
+    if (dot(p - uv, p - uv) < r * r)
+        frag_col = vec4(0.5, 0.8, 1, 1);
+
+    r = 0.12;
+    p = u_points[0];
+    if (dot(p - uv, p - uv) < r * r)
+        frag_col = vec4(0.8, 0, 0, 1);
+    
+    p = u_points[u_point_count - 1];
+    if (dot(p - uv, p - uv) < r * r)
+        frag_col = vec4(0.9, 0, 0.1, 1);
 }

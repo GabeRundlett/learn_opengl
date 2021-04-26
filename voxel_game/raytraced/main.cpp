@@ -23,8 +23,10 @@ class voxel_game : public coel::application {
         u_selected_tile_nrm,
         u_tilemap_tex,
         u_tiles_tex,
-        u_exposure,
-        u_gamma,
+        u_tile_shader_accum_tex,
+        u_camera_valid,
+        u_valid_frame_count,
+        u_frame_index,
         u_time,
         u_hotbar_id,
         u_frame_dim;
@@ -40,12 +42,30 @@ class voxel_game : public coel::application {
 
     float exposure = 0.1f, gamma = 1.2f;
     chunk3d::tile_id hotbar_id = chunk3d::dirt;
+    int frame_index = 0;
+    int valid_frame_count = 0;
+
+    opengl::shader_program frame_shader;
+    opengl::shader_uniform
+        u_exposure,
+        u_gamma,
+        u_frame_shader_accum_tex;
+
+    opengl::framebuffer frame_accum_buffer;
+    opengl::texture2d<> frame_accum_col;
+    opengl::renderbuffer frame_accum_depth_rbo;
+
+    opengl::renderer::quad quad;
 
     void shader_init() {
         try {
             tile_shader = opengl::shader_program(
                 {.filepath = "voxel_game/raytraced/assets/shaders/tile_vert.glsl"},
                 {.filepath = "voxel_game/raytraced/assets/shaders/tile_frag.glsl"});
+            
+            frame_shader = opengl::shader_program(
+                {.filepath = "voxel_game/raytraced/assets/shaders/frame_vert.glsl"},
+                {.filepath = "voxel_game/raytraced/assets/shaders/frame_frag.glsl"});
         } catch (const coel::exception &e) {
             MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
         }
@@ -62,24 +82,32 @@ class voxel_game : public coel::application {
         u_tiles_tex = tile_shader.find_uniform("u_tiles_tex");
         u_frame_dim = tile_shader.find_uniform("u_frame_dim");
 
-        u_exposure = tile_shader.find_uniform("u_exposure");
-        u_gamma = tile_shader.find_uniform("u_gamma");
+        u_frame_index = tile_shader.find_uniform("u_frame_index");
+        u_tile_shader_accum_tex = tile_shader.find_uniform("u_accum_tex");
         
         u_time = tile_shader.find_uniform("u_time");
         u_hotbar_id = tile_shader.find_uniform("u_hotbar_id");
 
+        u_valid_frame_count = tile_shader.find_uniform("u_valid_frame_count");
+
         tile_shader.bind();
-        
         opengl::shader_program::send(u_cam_pos, player.cam.pos);
         opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
         opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+        opengl::shader_program::send(u_hotbar_id, hotbar_id);
 
+        u_frame_shader_accum_tex = frame_shader.find_uniform("u_frame_accum_tex");
+        u_exposure = frame_shader.find_uniform("u_exposure");
+        u_gamma = frame_shader.find_uniform("u_gamma");
+        frame_shader.bind();
         opengl::shader_program::send(u_exposure, exposure);
         opengl::shader_program::send(u_gamma, gamma);
 
-        opengl::shader_program::send(u_hotbar_id, hotbar_id);
-
         on_resize();
+    }
+
+    void camera_invalidate() {
+        valid_frame_count = 0;
     }
 
   public:
@@ -87,6 +115,13 @@ class voxel_game : public coel::application {
         // show_debug_menu = true;
         use_vsync(false);
         use_raw_mouse(true);
+
+        frame_accum_buffer.bind();
+        unsigned int attachments[] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(sizeof(attachments) / sizeof(attachments[0]), attachments);
+        opengl::framebuffer::attach(frame_accum_col, GL_COLOR_ATTACHMENT0);
+        opengl::framebuffer::attach(frame_accum_depth_rbo, GL_DEPTH_STENCIL_ATTACHMENT);
+        opengl::framebuffer::unbind();
 
         shader_init();
 
@@ -118,13 +153,13 @@ class voxel_game : public coel::application {
                 .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 154}, window.rect.top_left + glm::vec2{150, 164}}; },
                 .call = [&](float value) { player.move_sprint_mult = value; },
 
-                .value = 2.0f,
-                .range = {.min = 0.01f, .max = 4.0f},
+                .value = 4.0f,
+                .range = {.min = 0.01f, .max = 16.0f},
             }),
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("Exposure: {}", exposure); },
                 .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 210}, window.rect.top_left + glm::vec2{150, 220}}; },
-                .call = [&](float value) { tile_shader.bind(); exposure = value; opengl::shader_program::send(u_exposure, value); },
+                .call = [&](float value) { frame_shader.bind(); exposure = value; opengl::shader_program::send(u_exposure, value); },
 
                 .value = 0.1f,
                 .range = {.min = 0.0f, .max = 4.0f},
@@ -132,7 +167,7 @@ class voxel_game : public coel::application {
             std::make_shared<ui_slider>(slider{
                 .text = [&]() { return fmt::format("Gamma: {}", gamma); },
                 .rect = [&]() { return coel::rectangular_container{window.rect.top_left + glm::vec2{10, 244}, window.rect.top_left + glm::vec2{150, 254}}; },
-                .call = [&](float value) { tile_shader.bind(); gamma = value; opengl::shader_program::send(u_gamma, value); },
+                .call = [&](float value) { frame_shader.bind(); gamma = value; opengl::shader_program::send(u_gamma, value); },
 
                 .value = 1.2f,
                 .range = {.min = 0.0f, .max = 4.0f},
@@ -163,7 +198,7 @@ class voxel_game : public coel::application {
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
             if (should_place && tile_pick_ray.hit) {
-                float radius = 1;
+                float radius = 6;
                 last_place = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
@@ -174,6 +209,7 @@ class voxel_game : public coel::application {
                     }
                 }
                 chunk->invalidate();
+                camera_invalidate();
             }
         }
     }
@@ -187,7 +223,7 @@ class voxel_game : public coel::application {
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
             if (should_remove && tile_pick_ray.hit) {
-                float radius = 1;
+                float radius = 6;
                 last_remove = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
@@ -198,36 +234,40 @@ class voxel_game : public coel::application {
                     }
                 }
                 chunk->invalidate();
+                camera_invalidate();
             }
         }
     }
 
     void on_update(coel::duration elapsed) {
-        player.update(elapsed);
+        auto player_updated = player.update(elapsed);
+        if (player_updated) camera_invalidate();
+
+        if (!is_paused) {
+            if (now - last_place > 0.01s)
+                place();
+            if (now - last_remove > 0.01s)
+                remove();
+        }
 
         tile_shader.bind();
         opengl::shader_program::send(u_view_mat, player.cam.view_mat);
+        opengl::shader_program::send(u_valid_frame_count, valid_frame_count);
         opengl::shader_program::send(u_cam_pos, player.cam.pos);
         opengl::shader_program::send(u_time, float(coel::duration(now - start_time).count()));
         opengl::shader_program::send(u_hotbar_id, hotbar_id);
-
-        if (!is_paused) {
-            if (now - last_place > 0.05s)
-                place();
-            if (now - last_remove > 0.05s)
-                remove();
-        }
 
         for (auto &chunk : chunks)
             chunk->update();
     }
 
     void on_draw() {
-        opengl::framebuffer::unbind();
+        frame_accum_buffer.bind();
         glViewport(0, 0, frame_dim.x, frame_dim.y);
 
-        glClearColor(1.81f / 5, 2.01f / 5, 5.32f / 5, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(1.81f, 2.01f, 5.32f, 1.0f);
+        if (valid_frame_count == 0)
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
@@ -238,13 +278,33 @@ class voxel_game : public coel::application {
             tile_shader.bind();
             opengl::shader_program::send(u_tilemap_tex, 0);
             opengl::shader_program::send(u_tiles_tex, 1);
+            opengl::shader_program::send(u_tile_shader_accum_tex, 2);
+            frame_accum_col.bind(2);
             opengl::shader_program::send(u_cube_pos, vec3(chunk->pos));
             opengl::shader_program::send(u_cube_dim, vec3(chunk->dim));
+            opengl::shader_program::send(u_frame_index, frame_index);
             chunk->tilemap_tex.bind(0);
             chunk->tiles_tex.bind(1);
             chunk->vao.bind();
             glDrawArrays(GL_TRIANGLES, 0, 36);
+            ++frame_index;
         }
+
+        opengl::framebuffer::unbind();
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glEnable(GL_MULTISAMPLE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glClearColor(0.1f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        frame_shader.bind();
+        opengl::shader_program::send(u_frame_shader_accum_tex, 0);
+        frame_accum_col.bind(0);
+        quad.draw();
+
+        ++valid_frame_count;
 
         glDisable(GL_DEPTH_TEST);
         if (is_paused)
@@ -269,6 +329,7 @@ class voxel_game : public coel::application {
             const auto screen_center = glm::vec2(frame_dim) * 0.5f;
             player.move_mouse(input.mouse.cursor_pos - screen_center);
             set_mouse_pos(screen_center);
+            camera_invalidate();
         }
     }
 
@@ -282,19 +343,42 @@ class voxel_game : public coel::application {
         tile_shader.bind();
         opengl::shader_program::send(u_proj_mat, player.cam.proj_mat);
         opengl::shader_program::send(u_frame_dim, glm::vec2(frame_dim));
+        
+        frame_accum_col.recreate({
+            .data = {
+                .dim = frame_dim,
+                .format = GL_RGBA,
+            },
+            .gl_format = GL_RGBA16F,
+            .wrap = {.s = GL_CLAMP_TO_EDGE, .t = GL_CLAMP_TO_EDGE},
+            .filter = {.min = GL_LINEAR, .max = GL_LINEAR},
+            .samples = 4,
+            .use_mipmap = false,
+        });
+        
+        frame_accum_depth_rbo.recreate({
+            .dim = frame_dim,
+            .gl_format = GL_DEPTH24_STENCIL8,
+        });
+
+        camera_invalidate();
     }
 
     void on_mouse_button(const coel::mouse_button_event &e) {
         if (!is_paused) {
             if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
                 should_remove = e.action == GLFW_PRESS;
-                remove();
-                last_remove = now + 200ms;
+                if (should_remove) {
+                    remove();
+                    last_remove = now + 200ms;
+                }
             }
             if (e.button == GLFW_MOUSE_BUTTON_RIGHT) {
                 should_place = e.action == GLFW_PRESS;
-                place();
-                last_place = now + 200ms;
+                if (should_place) {
+                    place();
+                    last_place = now + 200ms;
+                }
             }
             if (e.button == GLFW_MOUSE_BUTTON_MIDDLE) {
                 for (auto &chunk : chunks) {

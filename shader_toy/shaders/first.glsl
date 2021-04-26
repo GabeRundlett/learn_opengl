@@ -7,7 +7,7 @@ void main() {
     gl_Position = vec4(a_pos, 0, 1);
 }
 
-#coel_shader[type: frag, name: "my frag shader"]
+#coel_shader [type: frag, name: "my frag shader"]
 #version 440
 
 out vec4 frag_col;

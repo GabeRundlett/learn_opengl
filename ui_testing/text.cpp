@@ -138,7 +138,7 @@ class my_app : public coel::application {
 
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(quad_vertices.data(), quad_vertices.size() * sizeof(quad_vertices[0]));
-    opengl::shader_program shader = opengl::shader_program({.filepath = "text_rendering/assets/quad_vert.glsl"}, {.filepath = "text_rendering/assets/quad_frag.glsl"});
+    opengl::shader_program shader = opengl::shader_program({.filepath = "ui_testing/assets/quad_vert.glsl"}, {.filepath = "ui_testing/assets/quad_frag.glsl"});
 
     my_app() : coel::application({400, 400}, "text rendering") {
         use_raw_mouse(true);

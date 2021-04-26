@@ -24,7 +24,7 @@ class tiles_game : public coel::application {
         u_intersection;
 
     opengl::texture2d<> tilemap_tex = opengl::texture2d<>({
-        .filepath = "voxel_game/assets/textures/tilemap.png",
+        .filepath = "voxel_game/raytraced/assets/textures/tilemap.png",
         .gl_format = GL_RGBA,
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
     });
@@ -78,10 +78,12 @@ class tiles_game : public coel::application {
 
         opengl::shader_program::send(u_intersection, surface.pos);
 
-        auto point_count = std::min((int)points.size(), 100);
+        auto point_count = std::min((int)(points.size() + raycast.points.size()), 100);
         std::vector<glm::vec2> point_positions(point_count);
-        for (int i = 0; i < point_count; ++i)
-            point_positions[i] = points[i].pos;
+        point_positions.front() = points[0].pos;
+        point_positions.back() = points[1].pos;
+        for (int i = 1; i < point_count - 1; ++i) 
+            point_positions[i] = raycast.points[i - 1];
         opengl::shader_program::send(u_point_count, point_count);
         opengl::shader_program::send(u_points, point_positions.data(), point_count);
 

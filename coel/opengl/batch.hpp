@@ -134,7 +134,6 @@ namespace opengl {
                 ++ibuffer_ptr;
             }
 
-            // vbuffer_ptr += vcount, ibuffer_ptr += icount;
             current_vcount += vcount, current_icount += icount;
         }
 

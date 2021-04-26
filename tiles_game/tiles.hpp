@@ -71,6 +71,8 @@ struct tile_chunk {
         glm::ivec2 tile_index;
         std::uint32_t total_steps;
         bool hit_surface, is_vertical;
+
+        std::vector<glm::vec2> points;
     };
 
     raycast_result raycast(const raycast_config &config) {
@@ -101,6 +103,13 @@ struct tile_chunk {
         }
 
         while (result.total_steps < config.max_iter) {
+
+            result.points.push_back(glm::vec2(result.tile_index));
+            if (get_tile(result.tile_index) != tile_id::none) {
+                result.hit_surface = true;
+                break;
+            }
+
             if (to_side_dist.x < to_side_dist.y) {
                 to_side_dist.x += delta_dist.x;
                 result.tile_index.x += ray_step.x;
@@ -109,11 +118,6 @@ struct tile_chunk {
                 to_side_dist.y += delta_dist.y;
                 result.tile_index.y += ray_step.y;
                 result.is_vertical = true;
-            }
-
-            if (get_tile(result.tile_index) != tile_id::none) {
-                result.hit_surface = true;
-                break;
             }
 
             ++result.total_steps;

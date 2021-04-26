@@ -7,7 +7,6 @@
 #include <fmt/core.h>
 
 namespace opengl {
-
     struct vertex_array {
       private:
         template <typename attr_t>

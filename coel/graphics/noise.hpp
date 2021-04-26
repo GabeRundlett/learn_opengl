@@ -302,7 +302,7 @@ namespace coel {
             config.scale *= config.lacunarity;
         }
         return value;
-    };
+    }
 
     float fractal_noise(glm::vec3 pos, fractal_noise_config config) {
         float value = 0.0f;
@@ -312,7 +312,7 @@ namespace coel {
             config.scale *= config.lacunarity;
         }
         return value;
-    };
+    }
 
     static inline constexpr glm::vec2 floor(glm::vec2 v) {
         return glm::vec2(std::floor(v.x), std::floor(v.y));
