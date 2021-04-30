@@ -14,15 +14,21 @@ Currently, the most interesting concept I've created (at least in my opinion) is
 Dependencies:
 - A C++ Compiler (MSVC, Clang, GCC)
 - CMake
-- the Conan C++ Package manager 
-    - installs the required libraries through CMake
+- Installed the following packages with vcpkg (in no particular order)
+    - glm
+    - glad[extensions]
+    - glfw
+    - assimp
+    - freetype
+    - stb
+    - fmt
 
-``` py
+```py
 # create build dir
 mkdir build
 cd build
 # configure cmake to release mode
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=[path to vcpkg root]/scripts/buildsystems/vcpkg.cmake
 
 # build all
 cmake --build . -S ../ -B . 

@@ -97,12 +97,17 @@ struct chunk3d {
         .filter = {.min = GL_NEAREST, .max = GL_NEAREST},
     });
 
+    opengl::shader_program compute_shader = opengl::shader_program({
+        .filepath = "voxel_game/raytraced/assets/shaders/chunk.comp",
+    });
+
     coel::clock::time_point last_update;
     bool valid = false;
 
     chunk3d(glm::vec3 chunk_pos) : pos(chunk_pos * glm::vec3(dim)) {
         vao.bind();
         opengl::vertex_array::set_layout<glm::vec3, glm::vec3, glm::vec2>();
+
         coel::fractal_noise_config noise_conf{
             .amplitude = 1.0f,
             .persistance = 0.5f,
@@ -116,17 +121,30 @@ struct chunk3d {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
                     auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
                     glm::vec3 p = pos + glm::vec3(x, y, z);
-                    float density = coel::fractal_noise(p, noise_conf) - (p.y - 16) / dim.y * 4;
+                    std::uint8_t val = none;
+
+                    // float density = coel::fractal_noise(p, noise_conf) - (p.y - 16) / dim.y * 4;
                     // density = density - pow(1.0f / dim.y * (y + pos.y), 4.0f) * 2;
                     // float density = p.x + p.y + p.z;
-                    std::uint8_t val = none;
-                    if (density > 0)
+                    // if (density > 0)
+                    //     val = stone;
+
+                    if (y < 5)
                         val = stone;
+
                     tile = val;
                 }
             }
         }
 
+        glBindImageTexture(0, tiles_tex.id, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
+        compute_shader.bind();
+        glDispatchCompute(dim.x, dim.y, dim.z);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+        glGetTexImage(GL_TEXTURE_3D, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, tiles.data());
+        
+#if 0
         for (std::uint32_t z = 0; z < dim.z; ++z) {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {
@@ -166,7 +184,7 @@ struct chunk3d {
                 }
             }
         }
-
+#endif
         last_update = coel::clock::now();
     }
 
@@ -207,7 +225,7 @@ struct chunk3d {
             }
         }
     }
-    
+
     void place_cylinder_xz(int x, int y, int z, float r, int h, tile_id fill) {
         int irad = int(r);
         for (int zi = -irad; zi <= irad; ++zi) {

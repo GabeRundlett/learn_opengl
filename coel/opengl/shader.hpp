@@ -18,11 +18,13 @@ namespace opengl {
             none,
             vert,
             frag,
+            comp,
         };
 
         constexpr std::string_view
             SHADER_TYPE_VERT_IDENT = "vert",
-            SHADER_TYPE_FRAG_IDENT = "frag";
+            SHADER_TYPE_FRAG_IDENT = "frag",
+            SHADER_TYPE_COMP_IDENT = "comp";
 
         struct shader_info {
             std::string name{}, source_filepath{};
@@ -47,6 +49,8 @@ namespace opengl {
                             result_vec.back().type = shader_type::vert;
                         else if (matches[1].str() == SHADER_TYPE_FRAG_IDENT)
                             result_vec.back().type = shader_type::frag;
+                        else if (matches[1].str() == SHADER_TYPE_COMP_IDENT)
+                            result_vec.back().type = shader_type::comp;
                     } else {
                         if (result_vec.size() > 0)
                             result_vec.back().source_stream << line << '\n';
@@ -144,6 +148,23 @@ namespace opengl {
             std::string info_log;
             glAttachShader(id, vert_shader.id);
             glAttachShader(id, frag_shader.id);
+            glLinkProgram(id);
+            glGetProgramiv(id, GL_LINK_STATUS, &success);
+            if (!success) {
+                info_log.resize(512);
+                glGetShaderInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
+                auto message = fmt::format("Failed to link shader program\n{}", info_log);
+                throw coel::exception(message.c_str());
+            }
+
+            bind();
+        }
+        shader_program(const shader_config &comp_shader_conf) : shader_program() {
+            shader<GL_COMPUTE_SHADER> comp_shader(comp_shader_conf);
+
+            int success;
+            std::string info_log;
+            glAttachShader(id, comp_shader.id);
             glLinkProgram(id);
             glGetProgramiv(id, GL_LINK_STATUS, &success);
             if (!success) {
