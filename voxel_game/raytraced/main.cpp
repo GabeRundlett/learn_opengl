@@ -174,7 +174,7 @@ class voxel_game : public coel::application {
             }),
         }};
 
-        int chunk_radius = 0;
+        int chunk_radius = 3;
         for (int zi = -chunk_radius; zi <= chunk_radius; ++zi) {
             for (int yi = -chunk_radius; yi <= chunk_radius; ++yi) {
                 for (int xi = -chunk_radius; xi <= chunk_radius; ++xi) {

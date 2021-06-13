@@ -2,6 +2,8 @@
 
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(r32ui, binding = 0) uniform uimage3D terrainData;
+uniform vec3 u_chunk_pos;
+uniform vec3 u_chunk_dim;
 
 const uint perm[64] = {
     0x5b89a097, 0x0d830f5a, 0x35605fc9, 0xe107e9c2, 0x1e67248c, 0x63088e45, 0x0a15f025, 0x9406be17,
@@ -202,7 +204,7 @@ const uint tile_id_leaves = 8u;
 const uint tile_id_log = 9u;
 
 void main() {
-    vec3 p = vec3(gl_GlobalInvocationID.xyz) / vec3(128, 128, 128);
+    vec3 p = vec3(gl_GlobalInvocationID.xyz) / u_chunk_dim + u_chunk_pos;
 
     FractalNoiseConfig noiseConf;
     noiseConf.amplitude = 0.2f;
@@ -215,5 +217,10 @@ void main() {
 
     if (value > 0.12) {
         imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_stone, 0u, 0u, 0u));
+    }
+    if (gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0 || 
+        gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.z == 0 ||
+        gl_GlobalInvocationID.y == 0 && gl_GlobalInvocationID.z == 0) {
+        imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_log, 0u, 0u, 0u));
     }
 }

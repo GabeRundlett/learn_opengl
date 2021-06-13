@@ -43,17 +43,21 @@ class ui_button : public ui_component {
     void mouse_over(glm::vec2) {}
     void mouse_exit() { hovered = false; }
     bool is_pressed() const { return pressed; }
-    void press(glm::vec2) { pressed = true; }
+    void press(glm::vec2) { pressed = true; config.call(); }
     void release() { pressed = false, toggled = !toggled; }
 
-    void draw(opengl::renderer::ui_batch &ui, opengl::renderer::text_batch &) override {
+    void draw(opengl::renderer::ui_batch &ui, opengl::renderer::text_batch &text) override {
         glm::vec4 color = {0.25, 0.25, 0.25, 1};
         if (hovered | pressed)
             color.r = 0.5f;
         ui.submit_rect(rect.top_left, rect.bottom_right, color);
         glm::vec2 toggle_border{4, 4};
-        if (toggled)
-            ui.submit_rect(rect.top_left + toggle_border, rect.bottom_right - toggle_border, {color.r * 2, color.r * 2, color.r * 2, 1});
+        
+        constexpr glm::vec4 text_col = {0.9f, 0.9f, 0.9f, 1.0f};
+        opengl::renderer::component_bounds bounds;
+        text.submit(glm::vec2(rect.bottom_right.x + 5, rect.top_left.y), config.text(), 14.0f, text_col, &bounds);
+        // if (toggled)
+        //     ui.submit_rect(rect.top_left + toggle_border, rect.bottom_right - toggle_border, {color.r * 2, color.r * 2, color.r * 2, 1});
     }
 };
 
