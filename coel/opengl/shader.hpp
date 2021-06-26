@@ -169,7 +169,7 @@ namespace opengl {
             glGetProgramiv(id, GL_LINK_STATUS, &success);
             if (!success) {
                 info_log.resize(512);
-                glGetShaderInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
+                glGetProgramInfoLog(id, (GLsizei)info_log.size(), nullptr, info_log.data());
                 auto message = fmt::format("Failed to link shader program\n{}", info_log);
                 throw coel::exception(message.c_str());
             }

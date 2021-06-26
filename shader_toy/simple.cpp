@@ -7,7 +7,7 @@
 class my_app : public coel::application {
     opengl::renderer::quad quad;
 
-    std::filesystem::path shader_path = std::filesystem::current_path() / "shader_toy/shaders/first.glsl";
+    std::filesystem::path shader_path = std::filesystem::current_path() / "shader_toy/shaders/simple.glsl";
     opengl::shader_program shader;
     opengl::shader_uniform u_viewport_dim;
     coel::clock::time_point prev_update_time;

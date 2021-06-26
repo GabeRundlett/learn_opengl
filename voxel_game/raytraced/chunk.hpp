@@ -76,7 +76,7 @@ struct chunk3d {
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0]));
 
-    static inline constexpr glm::uvec3 dim = {256, 128, 256};
+    static inline constexpr glm::uvec3 dim = {16, 16, 16};
     std::vector<std::uint32_t> tiles = std::vector<std::uint32_t>(dim.x * dim.y * dim.z);
     opengl::texture3d<std::uint32_t> tiles_tex = opengl::texture3d<std::uint32_t>({
         .data{
@@ -100,6 +100,7 @@ struct chunk3d {
     opengl::shader_program compute_shader = opengl::shader_program({
         .filepath = "voxel_game/raytraced/assets/shaders/chunk.comp",
     });
+    opengl::shader_uniform u_chunk_pos, u_chunk_dim;
 
     coel::clock::time_point last_update;
     bool valid = false;
@@ -116,32 +117,32 @@ struct chunk3d {
             .octaves = 8,
         };
 
-        for (std::uint32_t z = 0; z < dim.z; ++z) {
-            for (std::uint32_t y = 0; y < dim.y; ++y) {
-                for (std::uint32_t x = 0; x < dim.x; ++x) {
-                    auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
-                    glm::vec3 p = pos + glm::vec3(x, y, z);
-                    std::uint8_t val = none;
-
-                    // float density = coel::fractal_noise(p, noise_conf) - (p.y - 16) / dim.y * 4;
-                    // density = density - pow(1.0f / dim.y * (y + pos.y), 4.0f) * 2;
-                    // float density = p.x + p.y + p.z;
-                    // if (density > 0)
-                    //     val = stone;
-
-                    if (y < 5)
-                        val = stone;
-
-                    tile = val;
-                }
-            }
-        }
+        // for (std::uint32_t z = 0; z < dim.z; ++z) {
+        //     for (std::uint32_t y = 0; y < dim.y; ++y) {
+        //         for (std::uint32_t x = 0; x < dim.x; ++x) {
+        //             auto &tile = tiles[x + y * dim.x + z * dim.x * dim.y];
+        //             glm::vec3 p = pos + glm::vec3(x, y, z);
+        //             std::uint8_t val = none;
+        //             // float density = coel::fractal_noise(p, noise_conf) - (p.y - 16) / dim.y * 4;
+        //             // density = density - pow(1.0f / dim.y * (y + pos.y), 4.0f) * 2;
+        //             // float density = p.x + p.y + p.z;
+        //             // if (density > 0)
+        //             //     val = stone;
+        //             if (y < 5)
+        //                 val = stone;
+        //             tile = val;
+        //         }
+        //     }
+        // }
 
         glBindImageTexture(0, tiles_tex.id, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
         compute_shader.bind();
+        u_chunk_pos = compute_shader.find_uniform("u_chunk_pos");
+        u_chunk_dim = compute_shader.find_uniform("u_chunk_dim");
+        opengl::shader_program::send(u_chunk_pos, chunk_pos);
+        opengl::shader_program::send(u_chunk_dim, glm::vec3(dim));
         glDispatchCompute(dim.x, dim.y, dim.z);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
         glGetTexImage(GL_TEXTURE_3D, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, tiles.data());
         
 #if 0
