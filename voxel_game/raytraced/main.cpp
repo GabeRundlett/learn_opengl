@@ -66,6 +66,16 @@ class voxel_game : public coel::application {
             frame_shader = opengl::shader_program(
                 {.filepath = "voxel_game/raytraced/assets/shaders/frame_vert.glsl"},
                 {.filepath = "voxel_game/raytraced/assets/shaders/frame_frag.glsl"});
+            
+            chunks.clear();
+            int chunk_radius = 0;
+            for (int zi = -chunk_radius; zi <= chunk_radius; ++zi) {
+                for (int yi = -chunk_radius; yi <= chunk_radius; ++yi) {
+                    for (int xi = -chunk_radius; xi <= chunk_radius; ++xi) {
+                        chunks.emplace_back(new chunk3d(glm::vec3(xi, yi, zi)));
+                    }
+                }
+            }
         } catch (const coel::exception &e) {
             MessageBoxA(nullptr, e.what(), "Coel Exception", MB_OK);
         }
@@ -173,15 +183,6 @@ class voxel_game : public coel::application {
                 .range = {.min = 0.0f, .max = 4.0f},
             }),
         }};
-
-        int chunk_radius = 0;
-        for (int zi = -chunk_radius; zi <= chunk_radius; ++zi) {
-            for (int yi = -chunk_radius; yi <= chunk_radius; ++yi) {
-                for (int xi = -chunk_radius; xi <= chunk_radius; ++xi) {
-                    chunks.emplace_back(new chunk3d(glm::vec3(xi, yi, zi)));
-                }
-            }
-        }
     }
 
     ~voxel_game() {
@@ -223,7 +224,7 @@ class voxel_game : public coel::application {
                 opengl::shader_program::send(u_selected_tile_nrm, tile_pick_ray.hit_info.nrm);
             }
             if (should_remove && tile_pick_ray.hit) {
-                float radius = 6;
+                float radius = 1;
                 last_remove = now;
                 for (float zi = -radius; zi < radius; ++zi) {
                     for (float yi = -radius; yi < radius; ++yi) {
@@ -389,6 +390,10 @@ class voxel_game : public coel::application {
                 }
             }
         }
+    }
+
+    void on_mouse_scroll(const glm::dvec2 offset) {
+        hotbar_id = chunk3d::tile_id((hotbar_id - 1 - static_cast<int>(offset.y)) % 10 + 1);
     }
 
     void on_pause() { set_mouse_capture(false); }

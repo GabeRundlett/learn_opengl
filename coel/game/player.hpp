@@ -34,10 +34,10 @@ namespace coel {
 
         void move_mouse(glm::vec2 mouse_diff) {
             cam.rot.x -= mouse_diff.y * mouse_sens;
-            if (cam.rot.x < static_cast<float>(-std::numbers::pi / 2 + 0.1))
-                cam.rot.x = static_cast<float>(-std::numbers::pi / 2 + 0.1);
-            if (cam.rot.x > static_cast<float>(std::numbers::pi / 2 - 0.1))
-                cam.rot.x = static_cast<float>(std::numbers::pi / 2 - 0.1);
+            if (cam.rot.x < static_cast<float>(-std::numbers::pi / 2 + 0.01))
+                cam.rot.x = static_cast<float>(-std::numbers::pi / 2 + 0.01);
+            if (cam.rot.x > static_cast<float>(std::numbers::pi / 2 - 0.01))
+                cam.rot.x = static_cast<float>(std::numbers::pi / 2 - 0.01);
             cam.rot.y -= mouse_diff.x * mouse_sens;
             cam.update_rot();
         }
