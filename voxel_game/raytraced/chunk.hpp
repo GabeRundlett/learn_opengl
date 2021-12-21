@@ -76,7 +76,7 @@ struct chunk3d {
     opengl::vertex_array vao;
     opengl::vertex_buffer vbo = opengl::vertex_buffer(cube_vertices.data(), cube_vertices.size() * sizeof(cube_vertices[0]));
 
-    static inline constexpr glm::uvec3 dim = {16, 16, 16};
+    static inline constexpr glm::uvec3 dim = {128, 128, 128};
     std::vector<std::uint32_t> tiles = std::vector<std::uint32_t>(dim.x * dim.y * dim.z);
     opengl::texture3d<std::uint32_t> tiles_tex = opengl::texture3d<std::uint32_t>({
         .data{
@@ -145,7 +145,7 @@ struct chunk3d {
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         glGetTexImage(GL_TEXTURE_3D, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, tiles.data());
         
-#if 0
+#if 1
         for (std::uint32_t z = 0; z < dim.z; ++z) {
             for (std::uint32_t y = 0; y < dim.y; ++y) {
                 for (std::uint32_t x = 0; x < dim.x; ++x) {

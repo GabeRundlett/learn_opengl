@@ -210,20 +210,20 @@ void main() {
     noiseConf.amplitude = 0.2f;
     noiseConf.persistance = 0.3f;
     noiseConf.scale = 1.8f;
-    noiseConf.lacunarity = 4;
+    noiseConf.lacunarity = 2.2;
     noiseConf.octaves = 4;
     float value = fractalNoise(p, noiseConf);
     value = clamp(value, -1, 1);
-    value -= p.y - 0.5f;
+    value -= (p.y - 0.5f) * 2;
 
     if (value > 0.0f) {
         imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_stone, 0u, 0u, 0u));
     } else if (p.y == 0) {
         imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_grass, 0u, 0u, 0u));
     }
-    if (gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0 || 
-        gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.z == 0 ||
-        gl_GlobalInvocationID.y == 0 && gl_GlobalInvocationID.z == 0) {
-        imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_log, 0u, 0u, 0u));
-    }
+    // if (gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0 || 
+    //     gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.z == 0 ||
+    //     gl_GlobalInvocationID.y == 0 && gl_GlobalInvocationID.z == 0) {
+    //     imageStore(terrainData, ivec3(gl_GlobalInvocationID.xyz), uvec4(tile_id_log, 0u, 0u, 0u));
+    // }
 }

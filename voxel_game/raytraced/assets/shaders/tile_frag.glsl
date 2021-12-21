@@ -32,8 +32,8 @@ const uint tile_id_stone_cobbled = 7u;
 const uint tile_id_leaves = 8u;
 const uint tile_id_log = 9u;
 
-const vec3 sun_col = vec3(1, 0.6, 0.45) * 20;
-const vec3 sky_col = vec3(1.81f, 2.01f, 5.32f);
+const vec3 sun_col = vec3(1, 0.8, 0.5) * 20;
+const vec3 sky_col = vec3(1.81f, 2.01f, 5.32f) * 8;
 const vec3 sun_dir = normalize(vec3(-2, -8, -2));
 
 vec2 get_tex_px(uint tile_id) {
@@ -380,21 +380,21 @@ bounce_results bounce_scene(in surface_details surface, in int max_bounces) {
             raycast_config bounceray_conf;
             bounceray_conf.origin = surface.pos + surface.nrm * 0.0001f;
             bounceray_conf.dir = random_nrm(surface.nrm, bounceray_conf.origin + sample_i, 1);
-            bounceray_conf.max_iter = 128;
+            bounceray_conf.max_iter = 64;
             bounceray_conf.step_scale = 1 << 0;
             raycast_result bounceray = raycast(bounceray_conf);
 
             raycast_config bounce_sunray_conf;
             bounce_sunray_conf.origin = surface.pos + surface.nrm * 0.0001f;
             bounce_sunray_conf.dir = normalize(random_nrm(-sun_dir, bounceray_conf.origin + sample_i, 0.01));
-            bounce_sunray_conf.max_iter = 128;
+            bounce_sunray_conf.max_iter = 64;
             bounce_sunray_conf.step_scale = 1 << 0;
             raycast_result bounce_sunray = raycast(bounce_sunray_conf);
 
             if (bounceray.hit_surface) {
                 surface_details bounceray_surface = get_surface_details(bounceray_conf, bounceray);
                 if (bounceray_surface.tile_id == tile_id_sand) {
-                    results.block_contrib += bounceray_surface.col * contrib * 100;
+                    results.block_contrib += bounceray_surface.col * contrib * 500;
                     break;
                 }
                 results.block_contrib += bounceray_surface.col * contrib * 1;
@@ -444,7 +444,7 @@ void main() {
             if ((hotbar_uv.x < hotbar_item_border || hotbar_uv.x > 1 - hotbar_item_border || 
                 hotbar_uv.y < hotbar_item_border || hotbar_uv.y > 1 - hotbar_item_border)) {
                 if (hotbar_id == u_hotbar_id)
-                    frag_col = vec4(vec3(1), 1);
+                    frag_col = vec4(vec3(100), 1);
                 else
                     frag_col = vec4(vec3(0), 1);
             }
@@ -456,7 +456,7 @@ void main() {
         discard;
 
     surface_details surface = get_surface_details(camray_conf, camray);
-    // bounce_results bounce = bounce_scene(surface, 4);
+    bounce_results bounce = bounce_scene(surface, 4);
     
     raycast_config bounce_sunray_conf;
     bounce_sunray_conf.origin = surface.pos + surface.nrm * 0.0001f;
@@ -466,20 +466,20 @@ void main() {
     raycast_result bounce_sunray = raycast(bounce_sunray_conf);
 
     vec3 diffuse = surface.col;
-    // diffuse *= bounce.sky_contrib * sky_col + bounce.sun_contrib * sun_col + bounce.block_contrib;
+    diffuse *= bounce.sky_contrib * sky_col + bounce.sun_contrib * sun_col + bounce.block_contrib;
     if (!bounce_sunray.hit_surface) {
         diffuse *= sun_col * dot(normalize(surface.nrm), -sun_dir);
     } else {
-        diffuse *= sky_col * (1.5 + dot(normalize(surface.nrm), vec3(0, 1, 0))) * 0.2;
+        // diffuse *= sky_col * (1.5 + dot(normalize(surface.nrm), vec3(0, 1, 0))) * 0.2;
     }
 
     float depth = length(u_cam_pos + vec3(u_cube_dim) * 0.5 - u_cube_pos - surface.pos);
     // gl_FragDepth = 1 - 2 / (depth + 1);
 
     if (surface.tile_id == tile_id_sand) {
-        frag_col = vec4(surface.col * 10, 1);
+        frag_col = vec4(surface.col * 100, 1);
     } else {
-        frag_col = vec4(diffuse, 1);
+        frag_col = vec4(diffuse / 10, 1);
     }
 
     vec4 accum_col = texture(u_accum_tex, gl_FragCoord.xy / u_frame_dim);

@@ -122,9 +122,14 @@ class voxel_game : public coel::application {
 
   public:
     voxel_game() : coel::application({1200, 900}, "Voxel Game") {
-        // show_debug_menu = true;
+        show_debug_menu = true;
         use_vsync(false);
         use_raw_mouse(true);
+
+        player.cam.pos.y += 5;
+        player.cam.pos.x += 0.5;
+        player.cam.pos.z += 0.5;
+        player.vel.y += 0.5;
 
         frame_accum_buffer.bind();
         unsigned int attachments[] = {GL_COLOR_ATTACHMENT0};

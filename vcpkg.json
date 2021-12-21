@@ -1,0 +1,19 @@
+{
+    "name": "coel",
+    "version": "0.1.0",
+    "dependencies": [
+        "glfw3",
+        "glad",
+        "glm",
+        "freetype",
+        "assimp",
+        "stb",
+        "fmt",
+        {
+            "name": "imgui",
+            "features": [
+                "docking-experimental"
+            ]
+        }
+    ]
+}
